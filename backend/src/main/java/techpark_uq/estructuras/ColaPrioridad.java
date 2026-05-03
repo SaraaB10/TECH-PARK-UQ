@@ -88,7 +88,7 @@ public class ColaPrioridad<T> {
     }
 
     // Retorna el tamaño
-    public int tamaño() {
+    public int tamano() {
         return tamano;
     }
 
