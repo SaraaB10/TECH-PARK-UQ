@@ -34,7 +34,7 @@ public class ColaPrioridad<T> {
         this.tamano = 0;
     }
 
-    // ─── Métodos ────────────────────────────────────────────────
+    // Métodos
 
     // Encola respetando prioridad (1 antes que 2)
     public void encolar(T dato, int prioridad) {
