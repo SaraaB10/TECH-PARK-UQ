@@ -1,5 +1,6 @@
 package techpark_uq.servicio;
 
+import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
