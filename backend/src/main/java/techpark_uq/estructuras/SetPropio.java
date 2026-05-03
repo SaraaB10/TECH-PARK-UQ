@@ -4,15 +4,15 @@ import java.util.List;
 
 public class SetPropio<T> {
 
-    // ─── Atributos ──────────────────────────────────────────────
+    // Atributos
     private final List<T> elementos;
 
-    // ─── Constructor ────────────────────────────────────────────
+    // Constructor
     public SetPropio() {
         this.elementos = new ArrayList<>();
     }
 
-    // ─── Métodos ────────────────────────────────────────────────
+    // Métodos
 
     // Agrega solo si no existe (sin duplicados)
     public boolean agregar(T elemento) {

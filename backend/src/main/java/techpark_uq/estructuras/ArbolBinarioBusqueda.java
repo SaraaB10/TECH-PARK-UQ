@@ -5,7 +5,7 @@ import java.util.List;
 
 public class ArbolBinarioBusqueda<T extends Comparable<T>> {
 
-    // ─── Nodo interno ───────────────────────────────────────────
+    // Nodo interno
     private static class Nodo<T> {
         T dato;
         Nodo<T> izquierdo;
@@ -16,17 +16,17 @@ public class ArbolBinarioBusqueda<T extends Comparable<T>> {
         }
     }
 
-    // ─── Atributos ──────────────────────────────────────────────
+    // Atributos
     private Nodo<T> raiz;
     private int tamaño;
 
-    // ─── Constructor ────────────────────────────────────────────
+    // Constructor
     public ArbolBinarioBusqueda() {
         this.raiz = null;
         this.tamaño = 0;
     }
 
-    // ─── Métodos públicos ────────────────────────────────────────
+    // Métodos públicos
 
     public void insertar(T elemento) {
         raiz = insertarRec(raiz, elemento);
@@ -64,7 +64,7 @@ public class ArbolBinarioBusqueda<T extends Comparable<T>> {
         return tamaño;
     }
 
-    // ─── Métodos privados recursivos ────────────────────────────
+    // Métodos privados recursivos
 
     private Nodo<T> insertarRec(Nodo<T> nodo, T elemento) {
         if (nodo == null) return new Nodo<>(elemento);

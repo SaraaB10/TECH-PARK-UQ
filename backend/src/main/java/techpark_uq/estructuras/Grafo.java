@@ -3,7 +3,7 @@ import java.util.*;
 
 public class Grafo<T> {
 
-    // ─── Arista interna ─────────────────────────────────────────
+    // Arista interna
     public static class Arista<T> {
         T destino;
         double peso;
@@ -14,17 +14,17 @@ public class Grafo<T> {
         }
     }
 
-    // ─── Atributos ──────────────────────────────────────────────
+    // Atributos
     private final Map<T, List<Arista<T>>> listaAdyacencia;
     private final boolean dirigido;
 
-    // ─── Constructor ────────────────────────────────────────────
+    // Constructor
     public Grafo(boolean dirigido) {
         this.listaAdyacencia = new HashMap<>();
         this.dirigido = dirigido;
     }
 
-    // ─── Métodos ────────────────────────────────────────────────
+    // Métodos
 
     // Agrega un nodo al grafo
     public void agregarNodo(T nodo) {
