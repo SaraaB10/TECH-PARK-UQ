@@ -1,10 +1,5 @@
 package techpark_uq.modelo;
 
-
-import com.techpark.techparkuq.enums.EstadoAtraccion;
-import com.techpark.techparkuq.enums.TipoAtraccion;
-import com.techpark.techparkuq.estructuras.ListaEnlazada;
-
 public class Atraccion {
 
     private String id;
