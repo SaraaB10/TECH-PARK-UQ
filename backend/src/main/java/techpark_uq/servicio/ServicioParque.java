@@ -68,4 +68,70 @@ public class ServicioParque {
         return siguiente;
     }
 
+    // Cambiar estado atracción
+    public String cambiarEstadoAtraccion(String idAtraccion, String nuevoEstado) {
+        Atraccion atraccion = buscarAtraccion(idAtraccion);
+        if (atraccion == null) return "Atracción no encontrada";
+
+        atraccion.setEstado(EstadoAtraccion.valueOf(nuevoEstado));
+        return "Estado actualizado a: " + nuevoEstado;
+    }
+
+    // Revisión técnica
+    public String registrarRevisionTecnica(String idAtraccion) {
+        Atraccion atraccion = buscarAtraccion(idAtraccion);
+        if (atraccion == null) return "Atracción no encontrada";
+
+        atraccion.setEstado(EstadoAtraccion.ACTIVA);
+        atraccion.setMotivoCierre(null);
+        return "Revisión técnica registrada. Atracción reactivada.";
+    }
+
+    // Alerta climática
+    public AlertaClimatica activarAlertaClimatica(String tipoClima) {
+        TipoClima tipo = TipoClima.valueOf(tipoClima);
+        return parque.activarAlertaClimatica(tipo);
+    }
+
+    //  Asignar operador a zona
+    public String asignarOperadorAZona(String idOperador, String idZona) {
+        Persona persona = parque.getEmpleados().buscar(
+                e -> e.getId().equals(idOperador)
+        );
+        if (!(persona instanceof Operador operador))
+            return "Operador no encontrado";
+
+        Zona zona = parque.buscarZona(idZona);
+        if (zona == null) return "Zona no encontrada";
+
+        operador.asignarZona(zona);
+        zona.agregarOperador(operador);
+        return "Operador asignado correctamente a zona: " + zona.getNombre();
+    }
+
+    //  Favoritos
+    public String agregarFavorito(String idVisitante, String idAtraccion) {
+        Visitante visitante = buscarVisitante(idVisitante);
+        Atraccion atraccion = buscarAtraccion(idAtraccion);
+        if (visitante == null || atraccion == null) return "No encontrado";
+        visitante.agregarFavorito(atraccion);
+        return "Atracción agregada a favoritos";
+    }
+
+    // Búsquedas internas
+    public Atraccion buscarAtraccion(String id) {
+        return parque.obtenerTodasLasAtracciones().stream()
+                .filter(a -> a.getId().equals(id))
+                .findFirst().orElse(null);
+    }
+
+    public Visitante buscarVisitante(String id) {
+        return parque.getVisitantes().stream()
+                .filter(v -> v.getId().equals(id))
+                .findFirst().orElse(null);
+    }
+
+    public List<Atraccion> obtenerTodasLasAtracciones() {
+        return parque.obtenerTodasLasAtracciones();
+    }
 }
