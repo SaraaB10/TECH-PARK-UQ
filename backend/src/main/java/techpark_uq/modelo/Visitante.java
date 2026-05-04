@@ -1,4 +1,6 @@
 package techpark_uq.modelo;
+import techpark_uq.estructuras.ListaEnlazada;
+import techpark_uq.estructuras.SetPropio;
 import techpark_uq.modelo.*;
 
 

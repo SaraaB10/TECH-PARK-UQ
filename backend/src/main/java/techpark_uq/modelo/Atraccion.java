@@ -1,5 +1,7 @@
 package techpark_uq.modelo;
 
+import techpark_uq.estructuras.ListaEnlazada;
+
 public class Atraccion {
 
     private String id;
