@@ -15,7 +15,7 @@ public class ParqueController {
     private final ServicioParque servicioParque;
     private final ServicioCargaDatos servicioCargaDatos;
 
-    // Constructor: inyección de dependencias de los servicios
+    // Constructor
     public ParqueController(ServicioParque servicioParque, ServicioCargaDatos servicioCargaDatos) {
         this.servicioParque = servicioParque;
         this.servicioCargaDatos = servicioCargaDatos;
