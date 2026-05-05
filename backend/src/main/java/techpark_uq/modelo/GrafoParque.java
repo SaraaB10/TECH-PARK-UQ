@@ -34,4 +34,35 @@ public class GrafoParque {
         return ruta;
     }
 
+    // Obtener los nodos para el mapa
+    public List<Map<String, Object>> getNodosParaMapa() {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (Atraccion a : nodos.values()) {
+            Map<String, Object> nodo = new HashMap<>();
+            nodo.put("id", a.getId());
+            nodo.put("nombre", a.getNombre());
+            nodo.put("estado", a.getEstado().toString());
+            nodo.put("tipo", a.getTipo().toString());
+            resultado.add(nodo);
+        }
+        return resultado;
+    }
+
+    // Obtener las aristas para el mapa
+    public List<Map<String, Object>> getAristasParaMapa() {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (String idOrigen : grafo.obtenerNodos()) {
+            for (Grafo.Arista<String> arista : grafo.obtenerVecinos(idOrigen)) {
+                Map<String, Object> aristaMap = new HashMap<>();
+                aristaMap.put("from", idOrigen);
+                aristaMap.put("to", arista.destino);
+                aristaMap.put("peso", arista.peso);
+                resultado.add(aristaMap);
+            }
+        }
+        return resultado;
+    }
+
+    public Map<String, Atraccion> getNodos() { return nodos; }
+    public Grafo<String> getGrafo() { return grafo; }
 }
