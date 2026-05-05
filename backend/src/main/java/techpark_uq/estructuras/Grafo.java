@@ -5,8 +5,8 @@ public class Grafo<T> {
 
     // Arista interna
     public static class Arista<T> {
-        T destino;
-        double peso;
+        public T destino;
+        public double peso;
 
         public Arista(T destino, double peso) {
             this.destino = destino;

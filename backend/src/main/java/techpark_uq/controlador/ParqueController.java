@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import techpark_uq.servicio.ServicioCargaDatos;
 import techpark_uq.servicio.ServicioParque;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -63,6 +64,40 @@ public class ParqueController {
                 "ingresosDiarios", reporte.getIngresosDiarios(),
                 "cierresPorClima", reporte.getCierresPorClima().size(),
                 "alertasMantenimiento", reporte.getAlertasMantenimiento().size()
+        ));
+    }
+
+    // GET /api/parque/mapa
+    @GetMapping("/mapa")
+    public ResponseEntity<?> getMapa() {
+        GrafoParque grafo = servicioParque.getParque().getGrafoParque();
+        return ResponseEntity.ok(Map.of(
+                "nodos", grafo.getNodosParaMapa(),
+                "aristas", grafo.getAristasParaMapa()
+        ));
+    }
+
+    // GET /api/parque/ruta-optima
+    @GetMapping("/ruta-optima")
+    public ResponseEntity<?> getRutaOptima(
+            @RequestParam String origen,
+            @RequestParam String destino) {
+        GrafoParque grafo = servicioParque.getParque().getGrafoParque();
+        List<Atraccion> ruta = grafo.rutaOptima(origen, destino);
+
+        List<Map<String, Object>> resultado = ruta.stream()
+                .map(a -> Map.<String, Object>of(
+                        "id", a.getId(),
+                        "nombre", a.getNombre(),
+                        "estado", a.getEstado()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "origen", origen,
+                "destino", destino,
+                "ruta", resultado,
+                "pasos", resultado.size()
         ));
     }
 }
