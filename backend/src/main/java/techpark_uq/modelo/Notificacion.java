@@ -26,7 +26,7 @@ public class Notificacion {
     public LocalDateTime getFechaEnvio() { return fechaEnvio; }
 
     public Visitante getDestinatario() { return destinatario; }
-    
+
     public TipoNotificacion getTipo() { return tipo; }
 
     @Override
