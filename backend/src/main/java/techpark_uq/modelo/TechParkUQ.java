@@ -18,6 +18,7 @@ public class TechParkUQ {
     private boolean estaAbierto;
     private double ingresosDiarios;
     private int visitantesActuales;
+    private GrafoParque grafoParque;
 
     private List<Zona> zonas;
     private List<Visitante> visitantes;
@@ -38,6 +39,7 @@ public class TechParkUQ {
         this.estaAbierto = true;
         this.ingresosDiarios = 0;
         this.visitantesActuales = 0;
+        this.grafoParque = new GrafoParque();
         this.zonas = new ArrayList<>();
         this.visitantes = new ArrayList<>();
         this.empleados = new ListaEnlazada<>();
@@ -143,6 +145,11 @@ public class TechParkUQ {
         return reporteActual;
     }
 
+    // Grafo Parque
+    public void conectarAtracciones(String idOrigen, String idDestino, double distancia) {
+        grafoParque.agregarSendero(idOrigen, idDestino, distancia);
+    }
+
     // Getters
     public String getId() { return id; }
 
@@ -155,6 +162,8 @@ public class TechParkUQ {
     public int getVisitantesActuales() { return visitantesActuales; }
 
     public double getIngresosDiarios() { return ingresosDiarios; }
+
+    public GrafoParque getGrafoParque() { return grafoParque; }
 
     public List<Zona> getZonas() { return zonas; }
 

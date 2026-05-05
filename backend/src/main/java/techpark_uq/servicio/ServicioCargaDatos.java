@@ -61,6 +61,20 @@ public class ServicioCargaDatos {
         servicioParque.venderTicket(v1, "FAST_PASS");
         servicioParque.venderTicket(v2, "GENERAL");
 
+        // Grafo del parque
+        GrafoParque grafo = parque.getGrafoParque();
+
+        for (Atraccion a : parque.obtenerTodasLasAtracciones()) {
+            grafo.agregarAtraccion(a);
+        }
+
+        parque.conectarAtracciones("A-001", "A-002", 50);
+        parque.conectarAtracciones("A-002", "A-003", 120);
+        parque.conectarAtracciones("A-003", "A-004", 30);
+        parque.conectarAtracciones("A-004", "A-005", 80);
+        parque.conectarAtracciones("A-001", "A-005", 200);
+        parque.conectarAtracciones("A-002", "A-005", 150);
+
         return "Escenario inicial cargado: 3 zonas, 5 atracciones, 2 operadores, 2 visitantes";
     }
 }
