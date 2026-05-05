@@ -91,4 +91,29 @@ public class TechParkUQTest {
         assertEquals(EstadoAtraccion.ACTIVA, espectaculo.getEstado(),
                 "ESPECTACULO NO debe cerrarse por clima");
     }
+
+    // Test 4
+    @Test
+    void testListaEnlazadaHistorialVisitas() {
+        ListaEnlazada<Atraccion> historial = new ListaEnlazada<>();
+
+        Atraccion a1 = new Atraccion("A-001", "Montaña Rusa",
+                TipoAtraccion.MECANICA_ALTURA, 20, 1.40, 12, 0);
+        Atraccion a2 = new Atraccion("A-002", "Tobogán",
+                TipoAtraccion.ACUATICA, 15, 1.20, 8, 0);
+
+        historial.agregar(a1);
+        historial.agregar(a2);
+
+        assertEquals(2, historial.tamano(),
+                "El historial debe tener 2 atracciones");
+        assertTrue(historial.contiene(a1),
+                "El historial debe contener la primera atracción");
+
+        historial.eliminar(a1);
+        assertEquals(1, historial.tamano(),
+                "Después de eliminar debe quedar 1");
+        assertFalse(historial.contiene(a1),
+                "La atracción eliminada no debe estar en el historial");
+    }
 }
