@@ -12,4 +12,14 @@ public class GrafoParque {
         this.nodos = new HashMap<>();
     }
 
+    // Agregar una nueva atraccion al grafo
+    public void agregarAtraccion(Atraccion atraccion) {
+        grafo.agregarNodo(atraccion.getId());
+        nodos.put(atraccion.getId(), atraccion);
+    }
+
+    //Agregar una nueva arista al grafo
+    public void agregarSendero(String idOrigen, String idDestino, double distancia) {
+        grafo.agregarArista(idOrigen, idDestino, distancia);
+    }
 }
