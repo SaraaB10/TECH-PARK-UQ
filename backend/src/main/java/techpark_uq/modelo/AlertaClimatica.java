@@ -1,5 +1,7 @@
 package techpark_uq.modelo;
-import techpark_uq.modelo.*;
+
+import techpark_uq.enums.TipoClima;
+import techpark_uq.enums.TipoAtraccion;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;

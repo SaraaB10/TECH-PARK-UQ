@@ -1,4 +1,5 @@
 package techpark_uq.modelo;
+
 import java.time.LocalDate;
 import java.util.*;
 

@@ -1,5 +1,7 @@
 package techpark_uq.servicio;
 
+import techpark_uq.enums.EstadoAtraccion;
+import techpark_uq.enums.TipoClima;
 import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
 import java.util.List;

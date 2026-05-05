@@ -1,7 +1,9 @@
 package techpark_uq.servicio;
 
+import techpark_uq.enums.TipoAtraccion;
 import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
+
 
 @Service
 public class ServicioCargaDatos {

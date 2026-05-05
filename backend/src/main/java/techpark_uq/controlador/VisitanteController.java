@@ -1,4 +1,5 @@
 package techpark_uq.controlador;
+
 import techpark_uq.modelo.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

@@ -1,5 +1,5 @@
 package techpark_uq.modelo;
-import techpark_uq.modelo.*;
+
 import java.time.LocalDateTime;
 
 public class AlertaMantenimiento {

@@ -1,6 +1,5 @@
 package techpark_uq.modelo;
 
-import techpark_uq.enums.TipoAtraccion;
 import techpark_uq.enums.TipoClima;
 import techpark_uq.enums.TipoNotificacion;
 import techpark_uq.estructuras.ArbolBinarioBusqueda;
@@ -160,6 +159,8 @@ public class TechParkUQ {
     public List<Zona> getZonas() { return zonas; }
 
     public List<Visitante> getVisitantes() { return visitantes; }
+
+    public ListaEnlazada<Persona> getEmpleados() { return empleados; }
 
     public List<AlertaMantenimiento> getAlertasMantenimiento() { return alertasMantenimiento; }
 

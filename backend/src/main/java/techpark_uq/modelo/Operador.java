@@ -1,6 +1,6 @@
 package techpark_uq.modelo;
+
 import techpark_uq.estructuras.ListaEnlazada;
-import techpark_uq.modelo.*;
 
 public class Operador extends Persona {
 
