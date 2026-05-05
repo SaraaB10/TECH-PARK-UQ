@@ -64,4 +64,31 @@ public class TechParkUQTest {
         assertEquals(EstadoAtraccion.EN_MANTENIMIENTO, atraccion.getEstado(),
                 "Al visitante 500 debe cambiar a EN_MANTENIMIENTO");
     }
+
+    // Test 3
+    @Test
+    void testAlertaClimaticaCierraAtraccionesCorrectas() {
+        Zona zona = new Zona("Z-001", "Zona Test", 500);
+
+        Atraccion acuatica = new Atraccion("A-001", "Tobogán",
+                TipoAtraccion.ACUATICA, 15, 1.20, 8, 0);
+        Atraccion mecanica = new Atraccion("A-002", "Torre",
+                TipoAtraccion.MECANICA_ALTURA, 10, 1.50, 14, 0);
+        Atraccion espectaculo = new Atraccion("A-003", "Show",
+                TipoAtraccion.ESPECTACULO, 100, 0.0, 0, 0);
+
+        parque.agregarZona(zona);
+        parque.agregarAtraccionAZona(acuatica, "Z-001");
+        parque.agregarAtraccionAZona(mecanica, "Z-001");
+        parque.agregarAtraccionAZona(espectaculo, "Z-001");
+
+        parque.activarAlertaClimatica(TipoClima.TORMENTA_ELECTRICA);
+
+        assertEquals(EstadoAtraccion.CERRADA, acuatica.getEstado(),
+                "Atracción ACUATICA debe cerrarse");
+        assertEquals(EstadoAtraccion.CERRADA, mecanica.getEstado(),
+                "Atracción MECANICA_ALTURA debe cerrarse");
+        assertEquals(EstadoAtraccion.ACTIVA, espectaculo.getEstado(),
+                "ESPECTACULO NO debe cerrarse por clima");
+    }
 }
