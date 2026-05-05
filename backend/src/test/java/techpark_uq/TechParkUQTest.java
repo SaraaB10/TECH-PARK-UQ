@@ -34,7 +34,7 @@ public class TechParkUQTest {
                 "Quindío", "3100000000", "test@park.com", 5000);
     }
 
-    // Test 1
+    // Test 1 - Funciona
     @Test
     void testColaPrioridadFastPassPrimero() {
         ColaPrioridad<Visitante> cola = new ColaPrioridad<>();
@@ -51,7 +51,7 @@ public class TechParkUQTest {
                 "General debe salir después del FastPass");
     }
 
-    // Test 2
+    // Test 2 - Funciona
     @Test
     void testMantenimientoPreventivo500Visitantes() {
         for (int i = 0; i < 499; i++) {
@@ -65,7 +65,7 @@ public class TechParkUQTest {
                 "Al visitante 500 debe cambiar a EN_MANTENIMIENTO");
     }
 
-    // Test 3
+    // Test 3 -Funciona
     @Test
     void testAlertaClimaticaCierraAtraccionesCorrectas() {
         Zona zona = new Zona("Z-001", "Zona Test", 500);
@@ -92,7 +92,7 @@ public class TechParkUQTest {
                 "ESPECTACULO NO debe cerrarse por clima");
     }
 
-    // Test 4
+    // Test 4 - Funciona
     @Test
     void testListaEnlazadaHistorialVisitas() {
         ListaEnlazada<Atraccion> historial = new ListaEnlazada<>();
