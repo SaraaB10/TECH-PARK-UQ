@@ -33,4 +33,21 @@ public class TechParkUQTest {
         parque = new TechParkUQ("PQ-001", "Tech-Park Test",
                 "Quindío", "3100000000", "test@park.com", 5000);
     }
+
+    // Test 1 
+    @Test
+    void testColaPrioridadFastPassPrimero() {
+        ColaPrioridad<Visitante> cola = new ColaPrioridad<>();
+
+        cola.encolar(visitanteGeneral, 2);
+        cola.encolar(visitanteFastPass, 1);
+
+        Visitante primero = cola.desencolar();
+        assertEquals("Laura", primero.getNombre(),
+                "FastPass debe tener prioridad sobre General");
+
+        Visitante segundo = cola.desencolar();
+        assertEquals("Pedro", segundo.getNombre(),
+                "General debe salir después del FastPass");
+    }
 }
