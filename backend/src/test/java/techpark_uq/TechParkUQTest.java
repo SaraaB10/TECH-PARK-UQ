@@ -34,7 +34,7 @@ public class TechParkUQTest {
                 "Quindío", "3100000000", "test@park.com", 5000);
     }
 
-    // Test 1 
+    // Test 1
     @Test
     void testColaPrioridadFastPassPrimero() {
         ColaPrioridad<Visitante> cola = new ColaPrioridad<>();
@@ -49,5 +49,19 @@ public class TechParkUQTest {
         Visitante segundo = cola.desencolar();
         assertEquals("Pedro", segundo.getNombre(),
                 "General debe salir después del FastPass");
+    }
+
+    // Test 2
+    @Test
+    void testMantenimientoPreventivo500Visitantes() {
+        for (int i = 0; i < 499; i++) {
+            atraccion.registrarVisitante();
+        }
+        assertEquals(EstadoAtraccion.ACTIVA, atraccion.getEstado(),
+                "Con 499 visitantes debe seguir ACTIVA");
+
+        atraccion.registrarVisitante();
+        assertEquals(EstadoAtraccion.EN_MANTENIMIENTO, atraccion.getEstado(),
+                "Al visitante 500 debe cambiar a EN_MANTENIMIENTO");
     }
 }
