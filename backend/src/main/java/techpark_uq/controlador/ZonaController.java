@@ -51,4 +51,51 @@ public class ZonaController {
                 "estaLlena", zona.estaLlena()
         ));
     }
+
+    // GET /api/zonas/{id}/atracciones
+    @GetMapping("/{id}/atracciones")
+    public ResponseEntity<?> obtenerAtracciones(@PathVariable String id) {
+        Zona zona = servicioParque.obtenerZonaPorId(id);
+        if (zona == null) return ResponseEntity.notFound().build();
+
+        List<Map<String, Object>> atracciones = zona.getAtracciones()
+                .stream()
+                .map(a -> Map.<String, Object>of(
+                        "id", a.getId(),
+                        "nombre", a.getNombre(),
+                        "estado", a.getEstado(),
+                        "tipo", a.getTipo(),
+                        "visitantes", a.getContadorVisitantes()
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of(
+                "zona", zona.getNombre(),
+                "atracciones", atracciones
+        ));
+    }
+
+    // POST /api/zonas
+    @PostMapping
+    public ResponseEntity<String> crearZona(@RequestBody Map<String, Object> body) {
+        String resultado = servicioParque.crearZona(
+                (String) body.get("id"),
+                (String) body.get("nombre"),
+                (Integer) body.get("capacidadMaxima")
+        );
+        return ResponseEntity.ok(resultado);
+    }
+
+    // GET /api/zonas/{id}/operadores
+    @GetMapping("/{id}/operadores")
+    public ResponseEntity<?> obtenerOperadores(@PathVariable String id) {
+        Zona zona = servicioParque.obtenerZonaPorId(id);
+        if (zona == null) return ResponseEntity.notFound().build();
+
+        Object[] operadores = zona.getOperadoresAsignados().obtenerTodos();
+        return ResponseEntity.ok(Map.of(
+                "zona", zona.getNombre(),
+                "totalOperadores", operadores.length
+        ));
+    }
 }
