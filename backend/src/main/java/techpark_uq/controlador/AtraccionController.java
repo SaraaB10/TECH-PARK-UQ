@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/atracciones")
-@CrossOrigin(origins = "http://localhost:5173")
+
 public class AtraccionController {
 
     private final ServicioParque servicioParque;
