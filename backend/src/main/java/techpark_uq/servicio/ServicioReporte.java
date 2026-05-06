@@ -82,4 +82,27 @@ public class ServicioReporte {
         resultado.put("atraccionesConIncidentes", conIncidentes);
         return resultado;
     }
+
+    public Map<String, Object> resumenRapido() {
+        TechParkUQ parque = servicioParque.getParque();
+        Map<String, Object> resumen = new LinkedHashMap<>();
+        resumen.put("visitantesActuales", parque.getVisitantesActuales());
+        resumen.put("ingresosDiarios", parque.getIngresosDiarios());
+        resumen.put("estaAbierto", parque.isEstaAbierto());
+
+        long activas = parque.obtenerTodasLasAtracciones().stream()
+                .filter(Atraccion::estaActiva).count();
+        long cerradas = parque.obtenerTodasLasAtracciones().stream()
+                .filter(a -> !a.estaActiva()).count();
+
+        resumen.put("atraccionesActivas", activas);
+        resumen.put("atraccionesCerradas", cerradas);
+        resumen.put("alertasClimaticasActivas",
+                parque.getAlertasClimaticas().stream()
+                        .filter(AlertaClimatica::isActiva).count());
+        resumen.put("alertasMantenimientoPendientes",
+                parque.getAlertasMantenimiento().stream()
+                        .filter(a -> !a.isResuelta()).count());
+        return resumen;
+    }
 }
