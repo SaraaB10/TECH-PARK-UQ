@@ -4,6 +4,8 @@ import techpark_uq.enums.EstadoAtraccion;
 import techpark_uq.enums.TipoClima;
 import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -136,5 +138,20 @@ public class ServicioParque {
 
     public List<Atraccion> obtenerTodasLasAtracciones() {
         return parque.obtenerTodasLasAtracciones();
+    }
+
+    // Zonas
+    public List<Zona> obtenerTodasLasZonas() {
+        return parque.getZonas();
+    }
+
+    public Zona obtenerZonaPorId(String id) {
+        return parque.buscarZona(id);
+    }
+
+    public String crearZona(String id, String nombre, int capacidadMaxima) {
+        Zona zona = new Zona(id, nombre, capacidadMaxima);
+        parque.agregarZona(zona);
+        return "Zona creada correctamente: " + nombre;
     }
 }
