@@ -4,6 +4,8 @@ import techpark_uq.enums.EstadoAtraccion;
 import techpark_uq.enums.TipoClima;
 import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -136,5 +138,56 @@ public class ServicioParque {
 
     public List<Atraccion> obtenerTodasLasAtracciones() {
         return parque.obtenerTodasLasAtracciones();
+    }
+
+    // Zonas
+    public List<Zona> obtenerTodasLasZonas() {
+        return parque.getZonas();
+    }
+
+    public Zona obtenerZonaPorId(String id) {
+        return parque.buscarZona(id);
+    }
+
+    public String crearZona(String id, String nombre, int capacidadMaxima) {
+        Zona zona = new Zona(id, nombre, capacidadMaxima);
+        parque.agregarZona(zona);
+        return "Zona creada correctamente: " + nombre;
+    }
+
+    // Operadores
+    public String crearOperador(String id, String nombre, int edad,
+                                String telefono, String email, String contrasena) {
+        Operador operador = new Operador(id, nombre, edad, telefono, email, contrasena);
+        parque.agregarEmpleado(operador);
+        return "Operador creado correctamente: " + nombre;
+    }
+
+    public List<Operador> obtenerTodosLosOperadores() {
+        List<Operador> operadores = new ArrayList<>();
+        Object[] empleados = parque.getEmpleados().obtenerTodos();
+        for (Object e : empleados) {
+            if (e instanceof Operador) {
+                operadores.add((Operador) e);
+            }
+        }
+        return operadores;
+    }
+
+    public Operador obtenerOperadorPorId(String id) {
+        Object[] empleados = parque.getEmpleados().obtenerTodos();
+        for (Object e : empleados) {
+            if (e instanceof Operador op && op.getId().equals(id)) {
+                return op;
+            }
+        }
+        return null;
+    }
+
+    public String eliminarOperador(String id) {
+        Operador operador = obtenerOperadorPorId(id);
+        if (operador == null) return "Operador no encontrado";
+        parque.eliminarEmpleado(operador);
+        return "Operador eliminado correctamente";
     }
 }
