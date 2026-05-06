@@ -22,4 +22,11 @@ public class ReporteController {
     public ResponseEntity<Map<String, Object>> getReporteJornada() {
         return ResponseEntity.ok(servicioReporte.generarReporteCompleto());
     }
+
+    // GET /api/reportes/resumen
+    // Resumen rápido para el dashboard del frontend
+    @GetMapping("/resumen")
+    public ResponseEntity<Map<String, Object>> getResumen() {
+        return ResponseEntity.ok(servicioReporte.resumenRapido());
+    }
 }
