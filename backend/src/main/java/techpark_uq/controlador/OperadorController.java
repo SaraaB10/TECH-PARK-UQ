@@ -68,4 +68,33 @@ public class OperadorController {
         );
         return ResponseEntity.ok(resultado);
     }
+
+    // POST /api/operadores/{id}/asignar-zona
+    @PostMapping("/{id}/asignar-zona")
+    public ResponseEntity<String> asignarZona(
+            @PathVariable String id,
+            @RequestParam String idZona) {
+        String resultado = servicioParque.asignarOperadorAZona(id, idZona);
+        return ResponseEntity.ok(resultado);
+    }
+
+    // DELETE /api/operadores/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> eliminarOperador(@PathVariable String id) {
+        String resultado = servicioParque.eliminarOperador(id);
+        return ResponseEntity.ok(resultado);
+    }
+
+    // GET /api/operadores/{id}/atracciones
+    @GetMapping("/{id}/atracciones")
+    public ResponseEntity<?> obtenerAtracciones(@PathVariable String id) {
+        Operador op = servicioParque.obtenerOperadorPorId(id);
+        if (op == null) return ResponseEntity.notFound().build();
+
+        Object[] atracciones = op.getAtraccionesResponsable().obtenerTodos();
+        return ResponseEntity.ok(Map.of(
+                "operador", op.getNombre(),
+                "totalAtracciones", atracciones.length
+        ));
+    }
 }
