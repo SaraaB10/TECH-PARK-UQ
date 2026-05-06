@@ -154,4 +154,40 @@ public class ServicioParque {
         parque.agregarZona(zona);
         return "Zona creada correctamente: " + nombre;
     }
+
+    // Operadores
+    public String crearOperador(String id, String nombre, int edad,
+                                String telefono, String email, String contrasena) {
+        Operador operador = new Operador(id, nombre, edad, telefono, email, contrasena);
+        parque.agregarEmpleado(operador);
+        return "Operador creado correctamente: " + nombre;
+    }
+
+    public List<Operador> obtenerTodosLosOperadores() {
+        List<Operador> operadores = new ArrayList<>();
+        Object[] empleados = parque.getEmpleados().obtenerTodos();
+        for (Object e : empleados) {
+            if (e instanceof Operador) {
+                operadores.add((Operador) e);
+            }
+        }
+        return operadores;
+    }
+
+    public Operador obtenerOperadorPorId(String id) {
+        Object[] empleados = parque.getEmpleados().obtenerTodos();
+        for (Object e : empleados) {
+            if (e instanceof Operador op && op.getId().equals(id)) {
+                return op;
+            }
+        }
+        return null;
+    }
+
+    public String eliminarOperador(String id) {
+        Operador operador = obtenerOperadorPorId(id);
+        if (operador == null) return "Operador no encontrado";
+        parque.eliminarEmpleado(operador);
+        return "Operador eliminado correctamente";
+    }
 }
