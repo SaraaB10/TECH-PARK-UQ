@@ -230,4 +230,43 @@ public class ServicioParque {
         }
         return "Alerta no encontrada";
     }
+
+    //Metodo que obtiene y retorna la lista de alertas climáticas registradas en el parque
+    public List<Map<String, Object>> obtenerAlertasClimaticas() {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (AlertaClimatica ac : parque.getAlertasClimaticas()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", ac.getId());
+            item.put("tipo", ac.getTipo());
+            item.put("fechaActivacion", ac.getFechaActivacion().toString());
+            item.put("activa", ac.isActiva());
+            item.put("atraccionesAfectadas",
+                    ac.getAtraccionesAfectadas().stream()
+                            .map(Atraccion::getNombre)
+                            .toList()
+            );
+            resultado.add(item);
+        }
+        return resultado;
+    }
+
+    //Metodo que desactiva una alerta climática y reactiva las atracciones afectadas
+    public String desactivarAlertaClimatica(String idAlerta) {
+        for (AlertaClimatica ac : parque.getAlertasClimaticas()) {
+            if (ac.getId().equals(idAlerta)) {
+                if (!ac.isActiva()) return "La alerta ya estaba desactivada";
+                ac.desactivar();
+                // Reactivar atracciones afectadas que no estén en mantenimiento
+                for (Atraccion a : ac.getAtraccionesAfectadas()) {
+                    if (a.getEstado() == techpark_uq.enums.EstadoAtraccion.CERRADA) {
+                        a.setEstado(techpark_uq.enums.EstadoAtraccion.ACTIVA);
+                        a.setMotivoCierre(null);
+                    }
+                }
+                return "Alerta climática desactivada. Atracciones reabiertas.";
+            }
+        }
+        return "Alerta no encontrada";
+    }
+
 }
