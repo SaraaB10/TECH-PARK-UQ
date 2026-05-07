@@ -6,7 +6,9 @@ import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ServicioParque {
@@ -189,5 +191,43 @@ public class ServicioParque {
         if (operador == null) return "Operador no encontrado";
         parque.eliminarEmpleado(operador);
         return "Operador eliminado correctamente";
+    }
+
+    //Agregación de nuevos metodos
+
+    // Metodo para obtener alertas de mantenimiento con su información principal
+    public List<Map<String, Object>> obtenerAlertasMantenimiento() {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (AlertaMantenimiento am : parque.getAlertasMantenimiento()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", am.getId());
+            item.put("atraccion", am.getAtraccion().getNombre());
+            item.put("idAtraccion", am.getAtraccion().getId());
+            item.put("fecha", am.getFechaGeneracion().toString());
+            item.put("resuelta", am.isResuelta());
+            item.put("visitantesAlMomento", am.getVisitantesAlMomentoAlerta());
+            if (am.getFechaResolucion() != null) {
+                item.put("fechaResolucion", am.getFechaResolucion().toString());
+            }
+            resultado.add(item);
+        }
+        return resultado;
+    }
+
+    //Metodo que resuelve una alerta de mantenimiento y reactiva la atracción asociada
+    public String resolverAlertaMantenimiento(String idAlerta) {
+        for (AlertaMantenimiento am : parque.getAlertasMantenimiento()) {
+            if (am.getId().equals(idAlerta)) {
+                if (am.isResuelta()) return "La alerta ya estaba resuelta";
+                am.resolver();
+                am.getAtraccion().setEstado(
+                        techpark_uq.enums.EstadoAtraccion.ACTIVA
+                );
+                am.getAtraccion().setMotivoCierre(null);
+                return "Alerta resuelta. Atracción reactivada: "
+                        + am.getAtraccion().getNombre();
+            }
+        }
+        return "Alerta no encontrada";
     }
 }
