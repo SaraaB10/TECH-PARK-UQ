@@ -1,6 +1,4 @@
 package techpark_uq.controlador;
-
-
 import techpark_uq.modelo.AlertaClimatica;
 import techpark_uq.servicio.ServicioParque;
 import org.springframework.http.ResponseEntity;
@@ -37,5 +35,22 @@ public class AlertaController {
                 .filter(a -> !(boolean) a.get("resuelta"))
                 .toList();
         return ResponseEntity.ok(pendientes);
+    }
+
+    // POST /api/alertas/mantenimiento/{idAlerta}/resolver
+    // Operador resuelve una alerta y reactiva la atracción
+    @PostMapping("/mantenimiento/{idAlerta}/resolver")
+    public ResponseEntity<String> resolverAlerta(@PathVariable String idAlerta) {
+        String resultado = servicioParque.resolverAlertaMantenimiento(idAlerta);
+        return ResponseEntity.ok(resultado);
+    }
+
+    // GET /api/alertas/climaticas
+    // Lista todas las alertas climáticas registradas
+    @GetMapping("/climaticas")
+    public ResponseEntity<List<Map<String, Object>>> getAlertasClimaticas() {
+        return ResponseEntity.ok(
+                servicioParque.obtenerAlertasClimaticas()
+        );
     }
 }
