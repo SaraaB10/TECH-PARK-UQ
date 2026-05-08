@@ -269,4 +269,20 @@ public class ServicioParque {
         return "Alerta no encontrada";
     }
 
+    //Metodo para obtener notificaciones asociadas a un visitante específico
+    public List<Map<String, Object>> obtenerNotificaciones(String idVisitante) {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (Notificacion n : parque.getNotificaciones()) {
+            if (n.getDestinatario().getId().equals(idVisitante)) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", n.getId());
+                item.put("mensaje", n.getMensaje());
+                item.put("tipo", n.getTipo());
+                item.put("fechaEnvio", n.getFechaEnvio().toString());
+                resultado.add(item);
+            }
+        }
+        return resultado;
+    }
+
 }
