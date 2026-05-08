@@ -1,0 +1,99 @@
+{
+  "parque": {
+    "id": "PQ-001",
+    "nombre": "Tech-Park UQ",
+    "ubicacion": "Quindío, Colombia",
+    "telefono": "3101234567",
+    "email": "info@techparkuq.com",
+    "capacidadMaxima": 5000
+  },
+  "zonas": [
+    { "id": "Z-001", "nombre": "Zona Aventura", "capacidadMaxima": 500 },
+    { "id": "Z-002", "nombre": "Zona Acuática", "capacidadMaxima": 300 },
+    { "id": "Z-003", "nombre": "Zona Espectáculos", "capacidadMaxima": 400 }
+  ],
+  "atracciones": [
+    {
+      "id": "A-001", "nombre": "Montaña Rusa Extrema",
+      "tipo": "MECANICA_ALTURA", "capacidadMaximaPorCiclo": 20,
+      "alturaMinima": 1.40, "edadMinima": 12,
+      "costoAdicional": 15000, "idZona": "Z-001"
+    },
+    {
+      "id": "A-002", "nombre": "Torre de Caída Libre",
+      "tipo": "MECANICA_ALTURA", "capacidadMaximaPorCiclo": 10,
+      "alturaMinima": 1.50, "edadMinima": 14,
+      "costoAdicional": 10000, "idZona": "Z-001"
+    },
+    {
+      "id": "A-003", "nombre": "Tobogán Gigante",
+      "tipo": "ACUATICA", "capacidadMaximaPorCiclo": 15,
+      "alturaMinima": 1.20, "edadMinima": 8,
+      "costoAdicional": 8000, "idZona": "Z-002"
+    },
+    {
+      "id": "A-004", "nombre": "Piscina de Olas",
+      "tipo": "ACUATICA", "capacidadMaximaPorCiclo": 50,
+      "alturaMinima": 0.0, "edadMinima": 5,
+      "costoAdicional": 0, "idZona": "Z-002"
+    },
+    {
+      "id": "A-005", "nombre": "Show de Magia",
+      "tipo": "ESPECTACULO", "capacidadMaximaPorCiclo": 100,
+      "alturaMinima": 0.0, "edadMinima": 0,
+      "costoAdicional": 0, "idZona": "Z-003"
+    },
+    {
+      "id": "A-006", "nombre": "Carrusel Encantado",
+      "tipo": "OTRO", "capacidadMaximaPorCiclo": 30,
+      "alturaMinima": 0.80, "edadMinima": 3,
+      "costoAdicional": 5000, "idZona": "Z-003"
+    }
+  ],
+  "operadores": [
+    {
+      "id": "OP-001", "nombre": "Carlos López", "edad": 28,
+      "telefono": "3101111111", "email": "carlos@techpark.com",
+      "contrasena": "op1234", "idZona": "Z-001"
+    },
+    {
+      "id": "OP-002", "nombre": "Ana Martínez", "edad": 25,
+      "telefono": "3102222222", "email": "ana@techpark.com",
+      "contrasena": "op1234", "idZona": "Z-002"
+    },
+    {
+      "id": "OP-003", "nombre": "Luis Herrera", "edad": 32,
+      "telefono": "3103333333", "email": "luis@techpark.com",
+      "contrasena": "op1234", "idZona": "Z-003"
+    }
+  ],
+  "visitantes": [
+    {
+      "id": "V-001", "nombre": "Laura García", "edad": 25,
+      "telefono": "3104444444", "email": "laura@gmail.com",
+      "contrasena": "vis123", "estatura": 1.65,
+      "saldoVirtual": 200000, "tipoTicket": "FAST_PASS"
+    },
+    {
+      "id": "V-002", "nombre": "Pedro Ruiz", "edad": 30,
+      "telefono": "3105555555", "email": "pedro@gmail.com",
+      "contrasena": "vis123", "estatura": 1.75,
+      "saldoVirtual": 150000, "tipoTicket": "GENERAL"
+    },
+    {
+      "id": "V-003", "nombre": "María López", "edad": 22,
+      "telefono": "3106666666", "email": "maria@gmail.com",
+      "contrasena": "vis123", "estatura": 1.58,
+      "saldoVirtual": 300000, "tipoTicket": "FAMILIAR"
+    }
+  ],
+  "senderos": [
+    { "origen": "A-001", "destino": "A-002", "distancia": 50 },
+    { "origen": "A-002", "destino": "A-003", "distancia": 120 },
+    { "origen": "A-003", "destino": "A-004", "distancia": 30 },
+    { "origen": "A-004", "destino": "A-005", "distancia": 80 },
+    { "origen": "A-005", "destino": "A-006", "distancia": 60 },
+    { "origen": "A-001", "destino": "A-005", "distancia": 200 },
+    { "origen": "A-002", "destino": "A-006", "distancia": 150 }
+  ]
+}
