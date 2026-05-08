@@ -96,6 +96,42 @@ public class ServicioCargaJson {
                 visitantes++;
             }
 
+            // Cargar Senderos en el Grafo
+            GrafoParque grafo = parque.getGrafoParque();
+            for (Atraccion a : parque.obtenerTodasLasAtracciones()) {
+                grafo.agregarAtraccion(a);
+            }
+            for (JsonNode s : root.get("senderos")) {
+                parque.conectarAtracciones(
+                        s.get("origen").asText(),
+                        s.get("destino").asText(),
+                        s.get("distancia").asDouble()
+                );
+            }
+
+            // Marca el escenario como cargado correctamente
+            cargado = true;
+            // Retorna un resumen de los datos cargados desde el JSON
+            return String.format(
+                    "Escenario cargado desde JSON: %d zonas, %d atracciones, " +
+                            "%d operadores, %d visitantes",
+                    zonas, atracciones, operadores, visitantes
+            );
+
+            // Captura y retorna errores durante la carga del escenario
+        } catch (Exception e) {
+            return "Error al cargar el escenario: " + e.getMessage();
         }
     }
+
+    // Verifica si el escenario ya fue cargado previamente
+    public boolean isCargado() {
+        return cargado;
+    }
+
+    // Reinicia el estado de carga del escenario
+    public void resetear() {
+        cargado = false;
+    }
+
 }
