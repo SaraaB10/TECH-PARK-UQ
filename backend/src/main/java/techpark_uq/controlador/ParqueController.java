@@ -1,9 +1,9 @@
 package techpark_uq.controlador;
-
 import techpark_uq.modelo.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import techpark_uq.servicio.ServicioCargaDatos;
+import techpark_uq.servicio.ServicioCargaJson;
 import techpark_uq.servicio.ServicioParque;
 
 import java.util.List;
@@ -16,11 +16,13 @@ public class ParqueController {
 
     private final ServicioParque servicioParque;
     private final ServicioCargaDatos servicioCargaDatos;
+    private final ServicioCargaJson servicioCargaJson;
 
     // Constructor
-    public ParqueController(ServicioParque servicioParque, ServicioCargaDatos servicioCargaDatos) {
+    public ParqueController(ServicioParque servicioParque, ServicioCargaDatos servicioCargaDatos, ServicioCargaJson servicioCargaJson) {
         this.servicioParque = servicioParque;
         this.servicioCargaDatos = servicioCargaDatos;
+        this.servicioCargaJson = servicioCargaJson;
     }
 
     // GET: retorna información general del parque
@@ -67,7 +69,28 @@ public class ParqueController {
         ));
     }
 
+    // POST /api/parque/cargar-datos-prueba
+    // Carga el escenario hardcodeado (para pruebas rápidas)
+    @PostMapping("/cargar-datos-prueba")
+    public ResponseEntity<String> cargarDatosPrueba() {
+        String resultado = servicioCargaDatos.cargarEscenarioInicial();
+        return ResponseEntity.ok(resultado);
+    }
+
+    // GET /api/parque/estado-carga
+    // Verifica si ya se cargaron los datos
+    @GetMapping("/estado-carga")
+    public ResponseEntity<?> getEstadoCarga() {
+        return ResponseEntity.ok(Map.of(
+                "cargado", servicioCargaJson.isCargado(),
+                "mensaje", servicioCargaJson.isCargado()
+                        ? "Datos cargados correctamente"
+                        : "No se han cargado datos aún"
+        ));
+    }
+
     // GET /api/parque/mapa
+    // Obtiene la información del mapa del parque y sus conexiones
     @GetMapping("/mapa")
     public ResponseEntity<?> getMapa() {
         GrafoParque grafo = servicioParque.getParque().getGrafoParque();
@@ -78,6 +101,7 @@ public class ParqueController {
     }
 
     // GET /api/parque/ruta-optima
+    // Calcula y retorna la ruta óptima entre dos atracciones
     @GetMapping("/ruta-optima")
     public ResponseEntity<?> getRutaOptima(
             @RequestParam String origen,
