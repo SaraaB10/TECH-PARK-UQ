@@ -41,7 +41,7 @@ public class ParqueController {
     // POST: carga datos iniciales del sistema
     @PostMapping("/cargar-datos")
     public ResponseEntity<String> cargarDatos() {
-        String resultado = servicioCargaDatos.cargarEscenarioInicial();
+        String resultado = servicioCargaJson.cargarDesdeJson();
         return ResponseEntity.ok(resultado);
     }
 
