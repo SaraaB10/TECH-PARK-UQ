@@ -6,7 +6,9 @@ import techpark_uq.modelo.*;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ServicioParque {
@@ -190,4 +192,97 @@ public class ServicioParque {
         parque.eliminarEmpleado(operador);
         return "Operador eliminado correctamente";
     }
+
+    //Agregación de nuevos metodos
+
+    // Metodo para obtener alertas de mantenimiento con su información principal
+    public List<Map<String, Object>> obtenerAlertasMantenimiento() {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (AlertaMantenimiento am : parque.getAlertasMantenimiento()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", am.getId());
+            item.put("atraccion", am.getAtraccion().getNombre());
+            item.put("idAtraccion", am.getAtraccion().getId());
+            item.put("fecha", am.getFechaGeneracion().toString());
+            item.put("resuelta", am.isResuelta());
+            item.put("visitantesAlMomento", am.getVisitantesAlMomentoAlerta());
+            if (am.getFechaResolucion() != null) {
+                item.put("fechaResolucion", am.getFechaResolucion().toString());
+            }
+            resultado.add(item);
+        }
+        return resultado;
+    }
+
+    //Metodo que resuelve una alerta de mantenimiento y reactiva la atracción asociada
+    public String resolverAlertaMantenimiento(String idAlerta) {
+        for (AlertaMantenimiento am : parque.getAlertasMantenimiento()) {
+            if (am.getId().equals(idAlerta)) {
+                if (am.isResuelta()) return "La alerta ya estaba resuelta";
+                am.resolver();
+                am.getAtraccion().setEstado(
+                        techpark_uq.enums.EstadoAtraccion.ACTIVA
+                );
+                am.getAtraccion().setMotivoCierre(null);
+                return "Alerta resuelta. Atracción reactivada: "
+                        + am.getAtraccion().getNombre();
+            }
+        }
+        return "Alerta no encontrada";
+    }
+
+    //Metodo que obtiene y retorna la lista de alertas climáticas registradas en el parque
+    public List<Map<String, Object>> obtenerAlertasClimaticas() {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (AlertaClimatica ac : parque.getAlertasClimaticas()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", ac.getId());
+            item.put("tipo", ac.getTipo());
+            item.put("fechaActivacion", ac.getFechaActivacion().toString());
+            item.put("activa", ac.isActiva());
+            item.put("atraccionesAfectadas",
+                    ac.getAtraccionesAfectadas().stream()
+                            .map(Atraccion::getNombre)
+                            .toList()
+            );
+            resultado.add(item);
+        }
+        return resultado;
+    }
+
+    //Metodo que desactiva una alerta climática y reactiva las atracciones afectadas
+    public String desactivarAlertaClimatica(String idAlerta) {
+        for (AlertaClimatica ac : parque.getAlertasClimaticas()) {
+            if (ac.getId().equals(idAlerta)) {
+                if (!ac.isActiva()) return "La alerta ya estaba desactivada";
+                ac.desactivar();
+                // Reactivar atracciones afectadas que no estén en mantenimiento
+                for (Atraccion a : ac.getAtraccionesAfectadas()) {
+                    if (a.getEstado() == techpark_uq.enums.EstadoAtraccion.CERRADA) {
+                        a.setEstado(techpark_uq.enums.EstadoAtraccion.ACTIVA);
+                        a.setMotivoCierre(null);
+                    }
+                }
+                return "Alerta climática desactivada. Atracciones reabiertas.";
+            }
+        }
+        return "Alerta no encontrada";
+    }
+
+    //Metodo para obtener notificaciones asociadas a un visitante específico
+    public List<Map<String, Object>> obtenerNotificaciones(String idVisitante) {
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (Notificacion n : parque.getNotificaciones()) {
+            if (n.getDestinatario().getId().equals(idVisitante)) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", n.getId());
+                item.put("mensaje", n.getMensaje());
+                item.put("tipo", n.getTipo());
+                item.put("fechaEnvio", n.getFechaEnvio().toString());
+                resultado.add(item);
+            }
+        }
+        return resultado;
+    }
+
 }
