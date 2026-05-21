@@ -636,16 +636,29 @@ function IncidentesPorAtraccion() {
 export default function Estadisticas() {
     const [lastUpdate, setLastUpdate] = useState(new Date())
     const [refreshing, setRefreshing] = useState(false)
+    const [reporte,    setReporte]    = useState(null)
+
+    async function fetchReporte() {
+        try {
+            const res = await estadisticasService.getReporteJornada()
+            if (res?.data) setReporte(res.data)
+        } catch {}
+    }
+
+    useEffect(() => { fetchReporte() }, [])
 
     async function handleRefresh() {
         setRefreshing(true)
-        try {
-            await estadisticasService.getResumen()
-        } catch {}
-        await new Promise(r => setTimeout(r, 800))
+        await fetchReporte()
         setLastUpdate(new Date())
         setRefreshing(false)
     }
+
+    // Enriquecer datos demo con datos reales si están disponibles
+    const atraccionesPopulares = reporte?.atraccionesMasVisitadas?.length
+        ? reporte.atraccionesMasVisitadas.map(a => ({ nombre: a.nombre ?? a, visitantes: a.visitantes ?? 0 }))
+        : ATRACCIONES_POPULARES
+    const ingresosDiarios = reporte?.ingresosDiarios ?? null
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8" style={{ background: 'var(--c-night)' }}>

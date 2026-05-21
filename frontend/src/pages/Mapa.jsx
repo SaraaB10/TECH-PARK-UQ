@@ -10,6 +10,7 @@ import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Select } from '@/components/ui/Input'
+import { parqueService } from '@/services/parqueService'
 
 // ─── Datos del parque ─────────────────────────────────────────────────────────
 const NODOS = [
@@ -582,11 +583,66 @@ function PanelRecomendaciones({ onSelectNodo }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
+// Posiciones circulares para nodos que vengan del backend sin coordenadas
+function computePositions(nodos) {
+    const cx = 0, cy = 0, r = 260
+    return nodos.map((n, i) => {
+        const angle = (2 * Math.PI * i) / nodos.length - Math.PI / 2
+        return { ...n, x: Math.round(cx + r * Math.cos(angle)), y: Math.round(cy + r * Math.sin(angle)) }
+    })
+}
+
+const TIPO_ICONO = {
+    MECANICA_ALTURA: '🎢',
+    ACUATICA:        '🌊',
+    ESPECTACULO:     '🎭',
+    OTRO:            '🎡',
+}
+
 export default function Mapa() {
     const [nodoSel,      setNodoSel]      = useState(null)
     const [rutaNodos,    setRutaNodos]    = useState([])
     const [filtroZona,   setFiltroZona]   = useState('Todas')
     const [zoom,         setZoom]         = useState(1)
+    const [nodos,        setNodos]        = useState(NODOS)
+    const [aristas,      setAristas]      = useState(ARISTAS)
+
+    useEffect(() => {
+        async function fetchMapa() {
+            try {
+                const res = await parqueService.getMapa()
+                if (!res?.data) return
+                const { nodos: backNodos, aristas: backAristas } = res.data
+                if (backNodos?.length) {
+                    const mapped = backNodos.map(n => ({
+                        id:          n.id,
+                        label:       n.nombre,
+                        zona:        n.tipo === 'MECANICA_ALTURA' ? 'Aventura'
+                                   : n.tipo === 'ACUATICA'        ? 'Acuática'
+                                   : n.tipo === 'ESPECTACULO'     ? 'Espectáculos'
+                                   : 'General',
+                        estado:      n.estado,
+                        visitantes:  n.contadorVisitantes ?? 0,
+                        espera:      n.tiempoEsperaEstimado ?? 0,
+                        alturaMin:   n.alturaMinima ?? 0,
+                        costo:       n.costoAdicional ?? 0,
+                        icono:       TIPO_ICONO[n.tipo] ?? '🎡',
+                        x: 0, y: 0,
+                    }))
+                    setNodos(computePositions(mapped))
+                }
+                if (backAristas?.length) {
+                    setAristas(backAristas.map(a => ({
+                        from:   a.from,
+                        to:     a.to,
+                        label:  `${Math.round(a.peso)}m`,
+                        dashes: false,
+                    })))
+                }
+            } catch { /* usa datos hardcodeados como fallback */ }
+        }
+        fetchMapa()
+    }, [])
 
     const ZONAS_OPCIONES = ['Todas', 'Aventura', 'Acuática', 'Espectáculos']
 
@@ -662,8 +718,8 @@ export default function Mapa() {
                             }}
                         >
                             <GrafoSVG
-                                nodos={NODOS}
-                                aristas={ARISTAS}
+                                nodos={nodos}
+                                aristas={aristas}
                                 nodoSeleccionado={nodoSel}
                                 onSelect={setNodoSel}
                                 rutaResaltada={rutaNodos}
@@ -694,10 +750,10 @@ export default function Mapa() {
                     {/* Stats below map */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
                         {[
-                            { label: 'Activas',          value: NODOS.filter(n=>n.estado==='ACTIVA'&&n.id!=='entrada').length, color: '#22c55e', icon: CheckCircle  },
-                            { label: 'Mantenimiento',    value: NODOS.filter(n=>n.estado==='EN_MANTENIMIENTO').length,         color: '#f4a261', icon: AlertTriangle },
-                            { label: 'Cerradas',         value: NODOS.filter(n=>n.estado==='CERRADA').length,                  color: '#e63946', icon: Activity     },
-                            { label: 'Visitantes total', value: NODOS.reduce((s,n)=>s+n.visitantes,0),                         color: '#2a9d8f', icon: Users        },
+                            { label: 'Activas',          value: nodos.filter(n=>n.estado==='ACTIVA'&&n.id!=='entrada').length, color: '#22c55e', icon: CheckCircle  },
+                            { label: 'Mantenimiento',    value: nodos.filter(n=>n.estado==='EN_MANTENIMIENTO').length,         color: '#f4a261', icon: AlertTriangle },
+                            { label: 'Cerradas',         value: nodos.filter(n=>n.estado==='CERRADA').length,                  color: '#e63946', icon: Activity     },
+                            { label: 'Visitantes total', value: nodos.reduce((s,n)=>s+n.visitantes,0),                         color: '#2a9d8f', icon: Users        },
                         ].map(({ label, value, color, icon: Ico }) => (
                             <div key={label} className="glass rounded-xl px-4 py-3 flex items-center gap-3">
                                 <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"

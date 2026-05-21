@@ -170,16 +170,19 @@ function HeroVisitante({ visitante }) {
 
 // ─── Registro rápido ──────────────────────────────────────────────────────────
 function RegistroRapido({ onRegistrar }) {
-    const [form, setForm] = useState({ nombre: '', edad: '', estatura: '', saldo: '', tipoTicket: 'GENERAL' })
+    const [form, setForm] = useState({ nombre: '', edad: '', estatura: '', saldoVirtual: '', tipoTicket: 'GENERAL', telefono: '', email: '', contrasena: '' })
     const [loading, setLoading] = useState(false)
     const [errors, setErrors]   = useState({})
 
     function validate() {
         const e = {}
-        if (!form.nombre.trim()) e.nombre = 'Nombre requerido'
-        if (!form.edad || form.edad < 1 || form.edad > 120) e.edad = 'Edad inválida (1-120)'
-        if (!form.estatura || form.estatura < 50) e.estatura = 'Estatura inválida'
-        if (!form.saldo || form.saldo < 0) e.saldo = 'Saldo inválido'
+        if (!form.nombre.trim())                              e.nombre     = 'Nombre requerido'
+        if (!form.edad || form.edad < 1 || form.edad > 120)  e.edad       = 'Edad inválida (1-120)'
+        if (!form.estatura || form.estatura < 50)             e.estatura   = 'Estatura inválida'
+        if (!form.saldoVirtual || form.saldoVirtual < 0)      e.saldoVirtual = 'Saldo inválido'
+        if (!form.email.trim())                               e.email      = 'Correo requerido'
+        if (!form.telefono.trim())                            e.telefono   = 'Teléfono requerido'
+        if (!form.contrasena.trim())                          e.contrasena = 'Contraseña requerida'
         return e
     }
 
@@ -188,11 +191,40 @@ function RegistroRapido({ onRegistrar }) {
         if (Object.keys(e).length) { setErrors(e); return }
         setErrors({})
         setLoading(true)
+        const payload = {
+            nombre:       form.nombre,
+            edad:         parseInt(form.edad),
+            estatura:     parseFloat(form.estatura),
+            saldoVirtual: parseFloat(form.saldoVirtual),
+            tipoTicket:   form.tipoTicket,
+            telefono:     form.telefono,
+            email:        form.email,
+            contrasena:   form.contrasena,
+        }
         try {
-            const res = await visitanteService.registrar(form)
-            onRegistrar(res.data)
+            const res = await visitanteService.registrar(payload)
+            // backend retorna { idVisitante, idTicket, tipoTicket, mensaje }
+            onRegistrar({
+                id:              res.data.idVisitante,
+                nombre:          form.nombre,
+                edad:            parseInt(form.edad),
+                estatura:        parseFloat(form.estatura),
+                saldo:           parseFloat(form.saldoVirtual),
+                tipoTicket:      res.data.tipoTicket || form.tipoTicket,
+                puntosAcumulados: 0,
+                visitasTotal:    0,
+            })
         } catch {
-            onRegistrar({ id: Date.now(), ...form, puntosAcumulados: 0, visitasTotal: 0 })
+            onRegistrar({
+                id:              'V-' + Date.now(),
+                nombre:          form.nombre,
+                edad:            parseInt(form.edad),
+                estatura:        parseFloat(form.estatura),
+                saldo:           parseFloat(form.saldoVirtual),
+                tipoTicket:      form.tipoTicket,
+                puntosAcumulados: 0,
+                visitasTotal:    0,
+            })
         } finally { setLoading(false) }
     }
 
@@ -212,14 +244,17 @@ function RegistroRapido({ onRegistrar }) {
 
             <div className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                    <Input label="Nombre completo" placeholder="Tu nombre" value={form.nombre} onChange={f('nombre')} error={errors.nombre} />
-                    <Input label="Edad" type="number" placeholder="Ej: 24" value={form.edad} onChange={f('edad')} error={errors.edad} />
-                    <Input label="Estatura (cm)" type="number" placeholder="Ej: 175" value={form.estatura} onChange={f('estatura')} error={errors.estatura} />
-                    <Input label="Saldo virtual ($COP)" type="number" placeholder="Ej: 80000" value={form.saldo} onChange={f('saldo')} error={errors.saldo} />
+                    <Input label="Nombre completo"     placeholder="Tu nombre"        value={form.nombre}       onChange={f('nombre')}       error={errors.nombre} />
+                    <Input label="Correo electrónico"  type="email" placeholder="tu@email.com" value={form.email} onChange={f('email')}   error={errors.email} />
+                    <Input label="Teléfono"            placeholder="Ej: 3001234567"   value={form.telefono}     onChange={f('telefono')}     error={errors.telefono} />
+                    <Input label="Contraseña"          type="password" placeholder="Contraseña" value={form.contrasena} onChange={f('contrasena')} error={errors.contrasena} />
+                    <Input label="Edad"                type="number" placeholder="Ej: 24"  value={form.edad}    onChange={f('edad')}         error={errors.edad} />
+                    <Input label="Estatura (cm)"       type="number" placeholder="Ej: 175" value={form.estatura} onChange={f('estatura')}   error={errors.estatura} />
+                    <Input label="Saldo virtual ($COP)" type="number" placeholder="Ej: 80000" value={form.saldoVirtual} onChange={f('saldoVirtual')} error={errors.saldoVirtual} />
                     <Select label="Tipo de ticket" value={form.tipoTicket} onChange={f('tipoTicket')}>
                         <option value="GENERAL">General — $35.000</option>
                         <option value="FAMILIAR">Familiar — $90.000</option>
-                        <option value="FASTPASS">FastPass — $65.000</option>
+                        <option value="FAST_PASS">FastPass — $65.000</option>
                     </Select>
                     <div className="flex items-end">
                         <Button variant="primary" size="md" loading={loading} onClick={handleSubmit} className="w-full justify-center">

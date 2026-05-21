@@ -16,6 +16,7 @@ import {
     zonaService,
     climaService,
     atraccionService,
+    mantenimientoService,
 } from '@/services/parqueService'
 
 // ─── Demo data ────────────────────────────────────────────────────────────────
@@ -131,21 +132,30 @@ function MetricasRapidas({ operadores, zonas, mantenimiento, alertas }) {
 function GestionOperadores({ operadores, setOperadores, zonas }) {
     const [showForm, setShowForm]   = useState(false)
     const [loading, setLoading]     = useState(false)
-    const [form, setForm]           = useState({ nombre: '', email: '' })
+    const [form, setForm]           = useState({ nombre: '', email: '', edad: '', telefono: '', contrasena: '' })
     const [asignando, setAsignando] = useState(null) // operador id
     const [zonaSelec, setZonaSelec] = useState('')
 
     async function handleCrear() {
-        if (!form.nombre || !form.email) return
+        if (!form.nombre || !form.email || !form.edad || !form.telefono || !form.contrasena) return
         setLoading(true)
+        const payload = {
+            id: 'OP-' + Date.now(),
+            nombre: form.nombre,
+            edad: parseInt(form.edad),
+            telefono: form.telefono,
+            email: form.email,
+            contrasena: form.contrasena,
+        }
         try {
-            const res = await operadorService.create(form)
-            setOperadores(prev => [...prev, res.data])
+            await operadorService.create(payload)
+            const res = await operadorService.getAll()
+            if (res?.data) setOperadores(res.data)
         } catch {
-            setOperadores(prev => [...prev, { id: Date.now(), ...form, zona: 'Sin asignar', estado: 'ACTIVO' }])
+            setOperadores(prev => [...prev, { ...payload, zona: 'Sin asignar', estado: 'ACTIVO' }])
         } finally {
             setLoading(false)
-            setForm({ nombre: '', email: '' })
+            setForm({ nombre: '', email: '', edad: '', telefono: '', contrasena: '' })
             setShowForm(false)
         }
     }
@@ -186,8 +196,11 @@ function GestionOperadores({ operadores, setOperadores, zonas }) {
             {showForm && (
                 <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)', background: 'rgba(255,255,255,0.02)' }}>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <Input label="Nombre completo" placeholder="Ej: Carlos Mendoza" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
-                        <Input label="Correo electrónico" type="email" placeholder="nombre@uq.edu.co" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
+                        <Input label="Nombre completo"    placeholder="Ej: Carlos Mendoza"   value={form.nombre}    onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
+                        <Input label="Correo electrónico" placeholder="nombre@uq.edu.co"      value={form.email}     onChange={e => setForm(p => ({ ...p, email: e.target.value }))} type="email" />
+                        <Input label="Edad"               placeholder="Ej: 30"                value={form.edad}      onChange={e => setForm(p => ({ ...p, edad: e.target.value }))}   type="number" />
+                        <Input label="Teléfono"           placeholder="Ej: 3001234567"        value={form.telefono}  onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} />
+                        <Input label="Contraseña"         placeholder="Contraseña temporal"   value={form.contrasena} onChange={e => setForm(p => ({ ...p, contrasena: e.target.value }))} type="password" />
                         <div className="flex items-end">
                             <Button variant="success" size="md" loading={loading} onClick={handleCrear} className="w-full justify-center">
                                 <CheckCircle size={14} /> Crear operador
@@ -620,19 +633,23 @@ function Mantenimiento({ items, setItems }) {
 export default function Administracion() {
     const [operadores,    setOperadores]    = useState(DEMO_OPERADORES)
     const [zonas,         setZonas]         = useState(DEMO_ZONAS)
-    const [alertas,       setAlertas]       = useState(DEMO_ALERTAS)
-    const [mantenimiento, setMantenimiento] = useState(DEMO_MANTENIMIENTO)
+    const [alertas,       setAlertas]       = useState([])
+    const [mantenimiento, setMantenimiento] = useState([])
 
     useEffect(() => {
         async function fetchAll() {
             try {
-                const [resOp, resZonas] = await Promise.all([
+                const [resOp, resZonas, resAlertas, resMant] = await Promise.all([
                     operadorService.getAll(),
                     zonaService.getAll(),
+                    climaService.getAlertasActivas(),
+                    mantenimientoService.getAll(),
                 ])
-                if (resOp?.data)    setOperadores(resOp.data)
-                if (resZonas?.data) setZonas(resZonas.data)
-            } catch { /* usa demo data */ }
+                if (resOp?.data)      setOperadores(resOp.data)
+                if (resZonas?.data)   setZonas(resZonas.data)
+                if (resAlertas?.data) setAlertas(resAlertas.data)
+                if (resMant?.data)    setMantenimiento(resMant.data)
+            } catch { /* mantiene demo data si backend no responde */ }
         }
         fetchAll()
     }, [])

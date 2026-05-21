@@ -548,31 +548,37 @@ export default function Inicio() {
     const [mensaje, setMensaje] = useState(null)
     const [backendOk, setBackendOk] = useState(null)
 
-    // Intenta cargar datos reales al montar
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const [resZonas] = await Promise.all([
-                    zonaService.getAll(),
-                ])
-                if (resZonas?.data) setZonas(resZonas.data)
-                setBackendOk(true)
-            } catch {
-                setBackendOk(false)
+    async function refreshData() {
+        try {
+            const [resZonas, resInfo] = await Promise.all([
+                zonaService.getAll(),
+                parqueService.getInfo(),
+            ])
+            if (resZonas?.data?.length) setZonas(resZonas.data)
+            if (resInfo?.data) {
+                setStats(prev => ({
+                    ...prev,
+                    visitantes:  resInfo.data.visitantesActuales ?? prev.visitantes,
+                    capacidad:   resInfo.data.capacidadMaxima    ?? prev.capacidad,
+                    ingresos:    resInfo.data.ingresosDiarios    ?? prev.ingresos,
+                }))
             }
+            setBackendOk(true)
+        } catch {
+            setBackendOk(false)
         }
-        fetchData()
-    }, [])
+    }
+
+    // Intenta cargar datos reales al montar
+    useEffect(() => { refreshData() }, [])
 
     async function handleCargarDatos() {
         setLoading(true)
         setMensaje(null)
         try {
-            await parqueService.cargarDatos()
+            await parqueService.cargarDatosPrueba()
             setMensaje({ ok: true, texto: 'Escenario cargado correctamente ✓' })
-            // Refrescar datos
-            const resZonas = await zonaService.getAll()
-            if (resZonas?.data) setZonas(resZonas.data)
+            await refreshData()
         } catch {
             setMensaje({ ok: false, texto: 'Error: no se pudo conectar al backend' })
         } finally {

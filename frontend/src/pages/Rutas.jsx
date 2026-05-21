@@ -252,12 +252,30 @@ function CalculadoraRutas({ onRutaCalculada }) {
         if (!origen || !destino || origen === destino) return
         setLoading(true)
         setResultado(null)
-        await new Promise(r => setTimeout(r, 900))
         try {
             const res = await rutaService.calcularRuta(origen, destino)
-            setResultado(res.data)
+            if (res?.data) {
+                // Backend retorna { origen, destino, ruta: [{id,nombre,estado}], pasos }
+                const backData = res.data
+                const rutaArray = backData.ruta ?? []
+                const mapped = {
+                    nodos: rutaArray.map(n => n.id),
+                    pasos: rutaArray.map((n, i) => ({
+                        orden:     i + 1,
+                        nombre:    n.nombre,
+                        zona:      '',
+                        distancia: i === 0 ? 0 : Math.round((backData.distanciaTotal ?? 0) / Math.max(rutaArray.length - 1, 1)),
+                        espera:    0,
+                        estado:    n.estado,
+                    })),
+                    distanciaTotal: backData.distanciaTotal ?? 0,
+                    tiempoTotal:    Math.round((backData.distanciaTotal ?? 0) / 60 * 1.2),
+                }
+                setResultado(mapped)
+                onRutaCalculada(mapped.nodos)
+            }
         } catch {
-            // demo: build a fake Dijkstra path
+            // demo fallback
             const path = buildDemoPath(origen, destino)
             setResultado(path)
             onRutaCalculada(path.nodos)
