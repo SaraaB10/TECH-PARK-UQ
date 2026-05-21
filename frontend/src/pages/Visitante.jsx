@@ -321,7 +321,7 @@ function ColaVirtual({ visitanteId, atracciones }) {
         setLoading(true)
         const atraccion = atracciones.find(a => a.id === Number(seleccionada))
         try {
-            const res = await visitanteService.unirseACola(visitanteId, seleccionada)
+            const res = await atraccionService.ingresar(seleccionada, visitanteId)
             setPosicion(res.data.posicion ?? 3)
         } catch {
             setPosicion(Math.floor(Math.random() * 15) + 1)
@@ -654,7 +654,7 @@ function Notificaciones({ notifs, setNotifs }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Visitante() {
-    const [visitante,   setVisitante]   = useState(DEMO_VISITANTE)
+    const [visitante,   setVisitante]   = useState(null)
     const [atracciones, setAtracciones] = useState(DEMO_ATRACCIONES)
     const [historial,   setHistorial]   = useState(DEMO_HISTORIAL)
     const [favoritos,   setFavoritos]   = useState(DEMO_FAVORITOS)
@@ -672,7 +672,7 @@ export default function Visitante() {
     }, [])
 
     function handleRegistrar(data) {
-        setVisitante(prev => ({ ...prev, ...data }))
+        setVisitante(prev => prev ? { ...prev, ...data } : { puntosAcumulados: 0, visitasTotal: 0, ...data })
     }
 
     function handleComprar(tipo) {

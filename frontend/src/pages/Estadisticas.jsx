@@ -640,7 +640,7 @@ export default function Estadisticas() {
     async function handleRefresh() {
         setRefreshing(true)
         try {
-            await estadisticasService.getIngresos()
+            await estadisticasService.getResumen()
         } catch {}
         await new Promise(r => setTimeout(r, 800))
         setLastUpdate(new Date())

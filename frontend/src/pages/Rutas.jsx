@@ -720,12 +720,7 @@ export default function Rutas() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const [resColas, resFlujo] = await Promise.all([
-                    rutaService.getColas(),
-                    rutaService.getFlujoPorZona(),
-                ])
-                if (resColas?.data)  setColas(resColas.data)
-                if (resFlujo?.data)  setFlujoZonas(resFlujo.data)
+                // getColas y getFlujoPorZona no existen en el backend; se usan datos demo
             } catch {}
         }
         fetchData()

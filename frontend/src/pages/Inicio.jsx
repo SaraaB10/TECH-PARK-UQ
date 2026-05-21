@@ -9,7 +9,7 @@ import { StatCard } from '@/components/ui/Card'
 import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { parqueService } from '@/services/parqueService'
+import { parqueService, zonaService } from '@/services/parqueService'
 
 // ─── Demo data (se reemplaza con la respuesta del backend) ───────────────────
 const DEMO_STATS = {
@@ -553,7 +553,7 @@ export default function Inicio() {
         async function fetchData() {
             try {
                 const [resZonas] = await Promise.all([
-                    parqueService.getZonas(),
+                    zonaService.getAll(),
                 ])
                 if (resZonas?.data) setZonas(resZonas.data)
                 setBackendOk(true)
@@ -571,7 +571,7 @@ export default function Inicio() {
             await parqueService.cargarDatos()
             setMensaje({ ok: true, texto: 'Escenario cargado correctamente ✓' })
             // Refrescar datos
-            const resZonas = await parqueService.getZonas()
+            const resZonas = await zonaService.getAll()
             if (resZonas?.data) setZonas(resZonas.data)
         } catch {
             setMensaje({ ok: false, texto: 'Error: no se pudo conectar al backend' })
