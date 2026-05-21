@@ -1,4 +1,4 @@
-package techpark_uq.controlador;
+package techpark_uq.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -9,14 +9,14 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
+        registry.addMapping("/**")
                 .allowedOrigins(
                         "http://localhost:5173",
+                        "http://127.0.0.1:5173",
                         "http://localhost:3000"
                 )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("*")
                 .allowedHeaders("*")
-                .allowCredentials(false)
-                .maxAge(3600);
+                .allowCredentials(false);
     }
 }

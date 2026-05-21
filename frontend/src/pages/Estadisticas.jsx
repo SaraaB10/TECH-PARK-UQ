@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
     AreaChart, Area, BarChart, Bar, LineChart, Line,
     RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -9,13 +9,19 @@ import {
     DollarSign, Users, Clock, Star, TrendingUp, TrendingDown,
     AlertTriangle, Zap, Activity, BarChart3, PieChart as PieIcon,
     Flame, Target, Shield, Award, ArrowUpRight, ArrowDownRight,
-    RefreshCw, Calendar, Minus
+    RefreshCw, Calendar, Minus, CloudLightning, Wrench
 } from 'lucide-react'
 import { StatCard } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { estadisticasService } from '@/services/parqueService'
+import {
+    estadisticasService,
+    zonaService,
+    atraccionService,
+    alertaService,
+    reporteService,
+} from '@/services/parqueService'
 
 // ─── Paleta rainbow para recharts ─────────────────────────────────────────────
 const RC = {
@@ -32,84 +38,8 @@ const RC = {
 
 const RAINBOW_COLORS = [RC.red, RC.orange, RC.yellow, RC.teal, RC.blue, RC.purple]
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
-const INGRESOS_HORA = [
-    { hora: '08:00', hoy: 1200,  ayer: 950  },
-    { hora: '09:00', hoy: 2800,  ayer: 2100 },
-    { hora: '10:00', hoy: 4600,  ayer: 3800 },
-    { hora: '11:00', hoy: 6200,  ayer: 5100 },
-    { hora: '12:00', hoy: 7800,  ayer: 6400 },
-    { hora: '13:00', hoy: 8900,  ayer: 7200 },
-    { hora: '14:00', hoy: 10200, ayer: 8800 },
-    { hora: '15:00', hoy: 11500, ayer: 9600 },
-    { hora: '16:00', hoy: 12450, ayer: 10200},
-]
-
-const VISITANTES_ZONA = [
-    { zona: 'Aventura',     visitantes: 312, capacidad: 600, ayer: 280 },
-    { zona: 'Acuática',     visitantes: 289, capacidad: 500, ayer: 310 },
-    { zona: 'Espectáculos', visitantes: 246, capacidad: 900, ayer: 190 },
-]
-
-const ATRACCIONES_POPULARES = [
-    { nombre: 'Montaña Rusa X',   visitas: 234, color: RC.orange, espera: 18 },
-    { nombre: 'Show Holográfico', visitas: 198, color: RC.purple, espera: 30 },
-    { nombre: 'Río Salvaje',      visitas: 176, color: RC.blue,   espera: 14 },
-    { nombre: 'Free Fall 360',    visitas: 143, color: RC.teal,   espera: 9  },
-    { nombre: 'Ola Gigante',      visitas: 0,   color: RC.red,    espera: 0  },
-    { nombre: 'Torre del Terror', visitas: 0,   color: RC.yellow, espera: 0  },
-]
-
-const TIEMPOS_ESPERA_HORA = [
-    { hora: '08:00', montana: 5,  rio: 3,  show: 8  },
-    { hora: '09:00', montana: 8,  rio: 6,  show: 12 },
-    { hora: '10:00', montana: 12, rio: 9,  show: 18 },
-    { hora: '11:00', montana: 16, rio: 12, show: 24 },
-    { hora: '12:00', montana: 20, rio: 15, show: 28 },
-    { hora: '13:00', montana: 18, rio: 13, show: 32 },
-    { hora: '14:00', montana: 21, rio: 16, show: 35 },
-    { hora: '15:00', montana: 19, rio: 14, show: 30 },
-    { hora: '16:00', montana: 18, rio: 14, show: 30 },
-]
-
-const TICKETS_BREAKDOWN = [
-    { name: 'FastPass', value: 38, color: RC.yellow },
-    { name: 'General',  value: 45, color: RC.blue   },
-    { name: 'Familiar', value: 17, color: RC.purple  },
-]
-
-const RADAR_DATA = [
-    { metric: 'Ocupación',    aventura: 52, acuatica: 58, espectaculos: 27 },
-    { metric: 'Ingresos',     aventura: 74, acuatica: 61, espectaculos: 45 },
-    { metric: 'Satisfacción', aventura: 88, acuatica: 79, espectaculos: 92 },
-    { metric: 'Eficiencia',   aventura: 66, acuatica: 73, espectaculos: 80 },
-    { metric: 'Seguridad',    aventura: 95, acuatica: 90, espectaculos: 97 },
-]
-
-const SEMANA = [
-    { dia: 'Lun', visitantes: 620,  ingresos: 8200  },
-    { dia: 'Mar', visitantes: 750,  ingresos: 9800  },
-    { dia: 'Mié', visitantes: 580,  ingresos: 7600  },
-    { dia: 'Jue', visitantes: 810,  ingresos: 10600 },
-    { dia: 'Vie', visitantes: 940,  ingresos: 12100 },
-    { dia: 'Sáb', visitantes: 1200, ingresos: 15800 },
-    { dia: 'Hoy', visitantes: 847,  ingresos: 12450 },
-]
-
-const INCIDENTES = [
-    { atraccion: 'Torre del Terror', incidentes: 3, color: RC.red    },
-    { atraccion: 'Ola Gigante',      incidentes: 2, color: RC.orange },
-    { atraccion: 'Montaña Rusa X',   incidentes: 1, color: RC.yellow },
-    { atraccion: 'Río Salvaje',      incidentes: 1, color: RC.blue   },
-]
-
-const CIERRES_CLIMA = [
-    { tipo: 'Tormenta eléctrica', fecha: '14:32', atracciones: 'Montaña Rusa X, Free Fall 360', activa: true  },
-    { tipo: 'Lluvia fuerte',      fecha: '11:15', atracciones: 'Río Salvaje',                   activa: false },
-]
-
 function formatPeso(n) {
-    return `$${Number(n).toLocaleString('es-CO')}`
+    return `$${Number(n ?? 0).toLocaleString('es-CO')}`
 }
 
 // ─── Shared recharts tooltip ──────────────────────────────────────────────────
@@ -120,13 +50,13 @@ function ChartTooltip({ active, payload, label, prefix = '', suffix = '' }) {
             <p className="text-xs mb-2" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-display)' }}>{label}</p>
             {payload.map((p, i) => (
                 <div key={i} className="flex items-center justify-between gap-4 text-xs mb-1">
-          <span className="flex items-center gap-1.5" style={{ color: 'var(--c-dim)' }}>
-            <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-              {p.name}
-          </span>
+                    <span className="flex items-center gap-1.5" style={{ color: 'var(--c-dim)' }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+                        {p.name}
+                    </span>
                     <span className="font-mono font-bold" style={{ fontFamily: 'var(--font-mono)', color: p.color }}>
-            {prefix}{typeof p.value === 'number' ? p.value.toLocaleString('es-CO') : p.value}{suffix}
-          </span>
+                        {prefix}{typeof p.value === 'number' ? p.value.toLocaleString('es-CO') : p.value}{suffix}
+                    </span>
                 </div>
             ))}
         </div>
@@ -139,11 +69,96 @@ const CHART_PROPS = {
     yAxis: { tick: { fill: RC.text, fontSize: 11, fontFamily: 'JetBrains Mono' }, axisLine: false, tickLine: false, width: 45 },
 }
 
+// ─── Skeleton loader ──────────────────────────────────────────────────────────
+function Skeleton({ className = '', style = {} }) {
+    return (
+        <div
+            className={`rounded animate-pulse ${className}`}
+            style={{ background: 'rgba(255,255,255,0.06)', ...style }}
+        />
+    )
+}
+
+// ─── Custom hook: carga todos los datos del dashboard ─────────────────────────
+function useEstadisticas() {
+    const [data, setData]       = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError]     = useState(null)
+
+    const cargar = useCallback(async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            // Llamadas en paralelo a todos los endpoints necesarios
+            const [
+                resumenRes,
+                jornadaRes,
+                atraccionesRes,
+                zonasRes,
+                mantenimientoRes,
+                climaticasRes,
+            ] = await Promise.all([
+                reporteService.getResumen(),
+                reporteService.getJornada(),
+                atraccionService.getAll(),
+                zonaService.getAll(),
+                alertaService.getMantenimiento(),
+                alertaService.getClimaticas(),
+            ])
+
+            const resumen       = resumenRes.data
+            const jornada       = jornadaRes.data
+            const atracciones   = atraccionesRes.data       // [{id, nombre, tipo, estado, contadorVisitantes, tiempoEsperaEstimado, alturaMinima, edadMinima, costoAdicional}]
+            const zonas         = zonasRes.data             // [{id, nombre, capacidadMaxima, visitantesActuales, cantidadAtracciones, estaLlena}]
+            const mantenimiento = mantenimientoRes.data     // [{id, atraccion, resuelta, ...}]
+            const climaticas    = climaticasRes.data        // [{id, tipo, activa, atraccionesAfectadas, ...}]
+
+            setData({ resumen, jornada, atracciones, zonas, mantenimiento, climaticas })
+        } catch (e) {
+            setError(e?.message ?? 'Error al cargar estadísticas')
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => { cargar() }, [cargar])
+
+    return { data, loading, error, recargar: cargar }
+}
+
 // ─── Hero analítico ───────────────────────────────────────────────────────────
-function HeroEstadisticas() {
-    const hoyIngresos = 12450
-    const ayerIngresos = 10200
-    const deltaIngresos = Math.round(((hoyIngresos - ayerIngresos) / ayerIngresos) * 100)
+function HeroEstadisticas({ resumen, jornada, loading }) {
+    // Campos reales de GET /reportes/resumen y GET /reportes/jornada
+    const ingresos        = resumen?.ingresosDiarios ?? jornada?.ingresosDiarios ?? 0
+    const visitantesHoy   = resumen?.visitantesActuales ?? resumen?.totalVisitantes ?? 0
+    const ticketsVendidos = resumen?.ticketsVendidos ?? resumen?.totalTickets ?? 0
+
+    // Delta: si el resumen trae comparativa, úsala; si no, no mostramos delta
+    const deltaIngresos   = resumen?.variacionIngresos   ?? null
+    const deltaVisitantes = resumen?.variacionVisitantes ?? null
+
+    const pills = [
+        {
+            label: 'Ingresos hoy',
+            value: formatPeso(ingresos),
+            delta: deltaIngresos != null ? `${deltaIngresos > 0 ? '+' : ''}${deltaIngresos}%` : null,
+            up:    deltaIngresos >= 0,
+            color: '#22c55e',
+        },
+        {
+            label: 'Visitantes hoy',
+            value: String(visitantesHoy),
+            delta: deltaVisitantes != null ? `${deltaVisitantes > 0 ? '+' : ''}${deltaVisitantes}%` : null,
+            up:    deltaVisitantes >= 0,
+            color: '#2a9d8f',
+        },
+        {
+            label: 'Tickets vendidos',
+            value: String(ticketsVendidos),
+            delta: null,
+            color: '#f4a261',
+        },
+    ]
 
     return (
         <div
@@ -163,8 +178,8 @@ function HeroEstadisticas() {
                                 <BarChart3 size={16} style={{ color: '#6a4c93' }} />
                             </div>
                             <span className="text-xs uppercase tracking-widest font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#6a4c93' }}>
-                Centro analítico
-              </span>
+                                Centro analítico
+                            </span>
                         </div>
                         <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>
                             Estadísticas <span className="text-rainbow">Operativas</span>
@@ -172,26 +187,32 @@ function HeroEstadisticas() {
                         <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
                             Reportes en tiempo real — ingresos, flujo de visitantes, tiempos de espera e incidentes.
                         </p>
+                        {jornada?.fecha && (
+                            <p className="text-xs mt-2" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>
+                                Jornada: {jornada.fecha}
+                            </p>
+                        )}
                     </div>
 
                     {/* Right — KPI pills */}
                     <div className="flex flex-wrap gap-3">
-                        {[
-                            { label: 'Ingresos hoy',    value: formatPeso(hoyIngresos), delta: `+${deltaIngresos}%`, up: true,  color: '#22c55e' },
-                            { label: 'Visitantes hoy',  value: '847',                   delta: '+12%',               up: true,  color: '#2a9d8f' },
-                            { label: 'Tickets vendidos',value: '312',                   delta: '-3%',                up: false, color: '#f4a261' },
-                        ].map(({ label, value, delta, up, color }) => (
-                            <div key={label} className="glass rounded-xl px-5 py-3">
-                                <div className="text-xs mb-1" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-display)' }}>{label}</div>
-                                <div className="flex items-end gap-2">
-                                    <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>{value}</span>
-                                    <span className="flex items-center gap-0.5 text-xs pb-0.5 font-semibold" style={{ color }}>
-                    {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                                        {delta}
-                  </span>
+                        {loading
+                            ? [1, 2, 3].map(k => <Skeleton key={k} style={{ width: 140, height: 68 }} className="rounded-xl" />)
+                            : pills.map(({ label, value, delta, up, color }) => (
+                                <div key={label} className="glass rounded-xl px-5 py-3">
+                                    <div className="text-xs mb-1" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-display)' }}>{label}</div>
+                                    <div className="flex items-end gap-2">
+                                        <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>{value}</span>
+                                        {delta && (
+                                            <span className="flex items-center gap-0.5 text-xs pb-0.5 font-semibold" style={{ color }}>
+                                                {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                                                {delta}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        }
                     </div>
                 </div>
             </div>
@@ -200,19 +221,83 @@ function HeroEstadisticas() {
 }
 
 // ─── KPIs rápidos ─────────────────────────────────────────────────────────────
-function KPIsRapidos() {
+// Campos reales: resumen.ingresosDiarios, resumen.totalTickets / ticketsVendidos,
+//                atracciones[].tiempoEsperaEstimado (promedio), jornada.alertasMantenimiento.size
+function KPIsRapidos({ resumen, jornada, atracciones, loading }) {
+    const ingresos = resumen?.ingresosDiarios ?? jornada?.ingresosDiarios ?? 0
+
+    // Promedio de tiempos de espera de atracciones abiertas
+    const abiertasConEspera = (atracciones ?? []).filter(a => a.estado === 'ABIERTA' && a.tiempoEsperaEstimado > 0)
+    const promedioEspera = abiertasConEspera.length > 0
+        ? Math.round(abiertasConEspera.reduce((s, a) => s + a.tiempoEsperaEstimado, 0) / abiertasConEspera.length)
+        : 0
+
+    // Total alertas de mantenimiento (campo real del reporte)
+    const totalMantenimiento = jornada?.alertasMantenimiento ?? 0
+
+    // Tickets vendidos
+    const tickets = resumen?.ticketsVendidos ?? resumen?.totalTickets ?? 0
+
+    if (loading) {
+        return (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                {[1, 2, 3, 4].map(k => <Skeleton key={k} style={{ height: 96 }} className="rounded-2xl" />)}
+            </div>
+        )
+    }
+
     return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Ingresos totales"   value={formatPeso(12450)} sub="+22% vs ayer"          accent="#22c55e" icon={DollarSign}  className="animate-fade-up-delay-1" />
-            <StatCard label="Tickets vendidos"   value="312"               sub="38% FastPass"           accent="#e9c46a" icon={Zap}         className="animate-fade-up-delay-2" />
-            <StatCard label="Promedio espera"    value="18 min"            sub="Todas las atracciones"  accent="#f4a261" icon={Clock}       className="animate-fade-up-delay-3" />
-            <StatCard label="Satisfacción"       value="91%"               sub="Basado en visitas"      accent="#6a4c93" icon={Star}        className="animate-fade-up-delay-4" />
+            <StatCard
+                label="Ingresos totales"
+                value={formatPeso(ingresos)}
+                sub="Jornada actual"
+                accent="#22c55e"
+                icon={DollarSign}
+                className="animate-fade-up-delay-1"
+            />
+            <StatCard
+                label="Tickets vendidos"
+                value={String(tickets)}
+                sub="Entradas de hoy"
+                accent="#e9c46a"
+                icon={Zap}
+                className="animate-fade-up-delay-2"
+            />
+            <StatCard
+                label="Promedio espera"
+                value={`${promedioEspera} min`}
+                sub={`${abiertasConEspera.length} atracciones abiertas`}
+                accent="#f4a261"
+                icon={Clock}
+                className="animate-fade-up-delay-3"
+            />
+            <StatCard
+                label="Alertas activas"
+                value={String(totalMantenimiento)}
+                sub="Mantenimiento"
+                accent="#e63946"
+                icon={AlertTriangle}
+                className="animate-fade-up-delay-4"
+            />
         </div>
     )
 }
 
-// ─── Gráfico 1: Ingresos hoy vs ayer ─────────────────────────────────────────
-function GraficoIngresos() {
+// ─── Gráfico 1: Ingresos acumulados (snapshot real)
+// El backend no tiene ingresos por hora — mostramos el ingreso total del reporte
+// y los ingresos acumulados por zona (visitantesActuales × costoPromedio estimado)
+function GraficoIngresos({ zonas, resumen, jornada, loading }) {
+    // Construimos barras por zona con sus visitantes reales
+    const dataZonas = (zonas ?? []).map((z, i) => ({
+        zona: z.nombre,
+        visitantes: z.visitantesActuales ?? 0,
+        capacidad:  z.capacidadMaxima ?? 0,
+        color:      RAINBOW_COLORS[i % RAINBOW_COLORS.length],
+    }))
+
+    const ingresoTotal = resumen?.ingresosDiarios ?? jornada?.ingresosDiarios ?? 0
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--c-border)' }}>
@@ -221,43 +306,52 @@ function GraficoIngresos() {
                         <DollarSign size={15} style={{ color: '#22c55e' }} />
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Ingresos acumulados</h3>
-                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Hoy vs ayer — por hora</p>
+                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Visitantes por zona</h3>
+                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
+                            Ocupación actual · Ingresos totales: <span style={{ color: '#22c55e' }}>{formatPeso(ingresoTotal)}</span>
+                        </p>
                     </div>
-                </div>
-                <div className="flex gap-3">
-                    <span className="flex items-center gap-1.5 text-xs" style={{ color: '#22c55e' }}><span className="w-3 h-0.5 rounded-full inline-block" style={{ background: '#22c55e' }} />Hoy</span>
-                    <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--c-muted)' }}><span className="w-3 h-0.5 rounded-full inline-block" style={{ background: 'var(--c-muted)' }} />Ayer</span>
                 </div>
             </div>
             <div className="p-4" style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={INGRESOS_HORA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                        <defs>
-                            <linearGradient id="gradHoy"  x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.25} />
-                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0}    />
-                            </linearGradient>
-                            <linearGradient id="gradAyer" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%"  stopColor="#6b7280" stopOpacity={0.15} />
-                                <stop offset="95%" stopColor="#6b7280" stopOpacity={0}    />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid {...CHART_PROPS.cartesianGrid} />
-                        <XAxis dataKey="hora"  {...CHART_PROPS.xAxis} />
-                        <YAxis tickFormatter={v => `$${(v/1000).toFixed(0)}k`} {...CHART_PROPS.yAxis} />
-                        <Tooltip content={<ChartTooltip prefix="$" />} />
-                        <Area type="monotone" dataKey="ayer" name="Ayer" stroke="#6b7280" strokeWidth={1.5} fill="url(#gradAyer)" dot={false} strokeDasharray="4 2" />
-                        <Area type="monotone" dataKey="hoy"  name="Hoy"  stroke="#22c55e" strokeWidth={2}   fill="url(#gradHoy)"  dot={false} />
-                    </AreaChart>
-                </ResponsiveContainer>
+                {loading
+                    ? <Skeleton style={{ height: '100%' }} />
+                    : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={dataZonas} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <CartesianGrid {...CHART_PROPS.cartesianGrid} />
+                                <XAxis dataKey="zona" {...CHART_PROPS.xAxis} />
+                                <YAxis {...CHART_PROPS.yAxis} />
+                                <Tooltip content={<ChartTooltip suffix=" visitantes" />} />
+                                <Bar dataKey="visitantes" name="Visitantes" radius={[6, 6, 0, 0]}>
+                                    {dataZonas.map((entry, i) => (
+                                        <Cell key={i} fill={entry.color} fillOpacity={0.85} />
+                                    ))}
+                                </Bar>
+                                <Bar dataKey="capacidad" name="Capacidad máx." radius={[6, 6, 0, 0]} fill="rgba(255,255,255,0.06)" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )
+                }
             </div>
         </div>
     )
 }
 
 // ─── Gráfico 2: Atracciones más visitadas ────────────────────────────────────
-function GraficoAtracciones() {
+// Campos reales: atracciones[].contadorVisitantes, .nombre, .tiempoEsperaEstimado
+function GraficoAtracciones({ atracciones, loading }) {
+    // Ordenar por visitas descendente y tomar top 6
+    const top6 = [...(atracciones ?? [])]
+        .sort((a, b) => (b.contadorVisitantes ?? 0) - (a.contadorVisitantes ?? 0))
+        .slice(0, 6)
+        .map((a, i) => ({
+            nombre:  a.nombre,
+            visitas: a.contadorVisitantes ?? 0,
+            espera:  a.tiempoEsperaEstimado ?? 0,
+            color:   RAINBOW_COLORS[i % RAINBOW_COLORS.length],
+        }))
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
@@ -272,26 +366,45 @@ function GraficoAtracciones() {
                 </div>
             </div>
             <div className="p-4" style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={ATRACCIONES_POPULARES} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                        <CartesianGrid {...CHART_PROPS.cartesianGrid} horizontal={false} vertical />
-                        <XAxis type="number" {...CHART_PROPS.xAxis} />
-                        <YAxis type="category" dataKey="nombre" width={130} tick={{ fill: RC.text, fontSize: 10, fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<ChartTooltip suffix=" visitas" />} />
-                        <Bar dataKey="visitas" name="Visitas" radius={[0, 6, 6, 0]}>
-                            {ATRACCIONES_POPULARES.map((entry, i) => (
-                                <Cell key={i} fill={entry.color} fillOpacity={entry.visitas > 0 ? 0.85 : 0.2} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
+                {loading
+                    ? <Skeleton style={{ height: '100%' }} />
+                    : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={top6} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                                <CartesianGrid {...CHART_PROPS.cartesianGrid} horizontal={false} vertical />
+                                <XAxis type="number" {...CHART_PROPS.xAxis} />
+                                <YAxis type="category" dataKey="nombre" width={130} tick={{ fill: RC.text, fontSize: 10, fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
+                                <Tooltip content={<ChartTooltip suffix=" visitas" />} />
+                                <Bar dataKey="visitas" name="Visitas" radius={[0, 6, 6, 0]}>
+                                    {top6.map((entry, i) => (
+                                        <Cell key={i} fill={entry.color} fillOpacity={entry.visitas > 0 ? 0.85 : 0.2} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )
+                }
             </div>
         </div>
     )
 }
 
-// ─── Gráfico 3: Tiempos de espera por hora ───────────────────────────────────
-function GraficoTiemposEspera() {
+// ─── Gráfico 3: Tiempos de espera actuales (snapshot) ───────────────────────
+// Campos reales: atracciones[].tiempoEsperaEstimado, .nombre, .estado
+function GraficoTiemposEspera({ atracciones, loading }) {
+    // Top 8 atracciones abiertas con mayor tiempo de espera
+    const conEspera = [...(atracciones ?? [])]
+        .filter(a => a.estado === 'ABIERTA')
+        .sort((a, b) => (b.tiempoEsperaEstimado ?? 0) - (a.tiempoEsperaEstimado ?? 0))
+        .slice(0, 8)
+        .map((a, i) => ({
+            nombre:  a.nombre.length > 16 ? a.nombre.slice(0, 14) + '…' : a.nombre,
+            espera:  a.tiempoEsperaEstimado ?? 0,
+            color:   RAINBOW_COLORS[i % RAINBOW_COLORS.length],
+        }))
+
+    const umbral = 20 // minutos — umbral operacional
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
@@ -300,34 +413,72 @@ function GraficoTiemposEspera() {
                         <Clock size={15} style={{ color: '#e63946' }} />
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Tiempos de espera</h3>
-                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Evolución por hora — top 3 atracciones</p>
+                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Tiempos de espera actuales</h3>
+                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Atracciones abiertas — snapshot en tiempo real</p>
                     </div>
                 </div>
             </div>
             <div className="p-4" style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={TIEMPOS_ESPERA_HORA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                        <CartesianGrid {...CHART_PROPS.cartesianGrid} />
-                        <XAxis dataKey="hora" {...CHART_PROPS.xAxis} />
-                        <YAxis tickFormatter={v => `${v}m`} {...CHART_PROPS.yAxis} />
-                        <Tooltip content={<ChartTooltip suffix=" min" />} />
-                        <ReferenceLine y={20} stroke={RC.red} strokeDasharray="4 2" strokeOpacity={0.4} label={{ value: 'Umbral', fill: RC.red, fontSize: 10 }} />
-                        <Line type="monotone" dataKey="montana" name="Montaña Rusa X"   stroke={RC.orange} strokeWidth={2} dot={false} />
-                        <Line type="monotone" dataKey="rio"     name="Río Salvaje"      stroke={RC.blue}   strokeWidth={2} dot={false} />
-                        <Line type="monotone" dataKey="show"    name="Show Holográfico" stroke={RC.purple}  strokeWidth={2} dot={false} />
-                        <Legend formatter={v => <span style={{ color: 'var(--c-muted)', fontSize: 11 }}>{v}</span>} />
-                    </LineChart>
-                </ResponsiveContainer>
+                {loading
+                    ? <Skeleton style={{ height: '100%' }} />
+                    : conEspera.length === 0
+                        ? (
+                            <div className="h-full flex items-center justify-center">
+                                <p className="text-sm" style={{ color: 'var(--c-muted)' }}>Sin atracciones abiertas</p>
+                            </div>
+                        )
+                        : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={conEspera} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                                    <CartesianGrid {...CHART_PROPS.cartesianGrid} horizontal={false} vertical />
+                                    <XAxis type="number" tickFormatter={v => `${v}m`} {...CHART_PROPS.xAxis} />
+                                    <YAxis type="category" dataKey="nombre" width={120} tick={{ fill: RC.text, fontSize: 10, fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
+                                    <Tooltip content={<ChartTooltip suffix=" min" />} />
+                                    <ReferenceLine x={umbral} stroke={RC.red} strokeDasharray="4 2" strokeOpacity={0.5} label={{ value: `${umbral}m`, fill: RC.red, fontSize: 10 }} />
+                                    <Bar dataKey="espera" name="Espera (min)" radius={[0, 6, 6, 0]}>
+                                        {conEspera.map((entry, i) => (
+                                            <Cell key={i} fill={entry.espera > umbral ? RC.red : entry.color} fillOpacity={0.85} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )
+                }
             </div>
         </div>
     )
 }
 
-// ─── Gráfico 4: Tickets (PieChart) ───────────────────────────────────────────
-function GraficoTickets() {
+// ─── Gráfico 4: Distribución de estados de atracciones (reemplaza Tickets Pie)
+// Campos reales: atracciones[].estado (ABIERTA / CERRADA / MANTENIMIENTO / etc.)
+function GraficoEstadosAtracciones({ atracciones, loading }) {
     const RADIAN = Math.PI / 180
-    const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+
+    // Agrupar atracciones por estado
+    const conteo = (atracciones ?? []).reduce((acc, a) => {
+        const estado = a.estado ?? 'DESCONOCIDO'
+        acc[estado] = (acc[estado] ?? 0) + 1
+        return acc
+    }, {})
+
+    const ESTADO_COLORES = {
+        ABIERTA:       RC.green,
+        CERRADA:       RC.blue,
+        MANTENIMIENTO: RC.yellow,
+        SUSPENDIDA:    RC.red,
+        DESCONOCIDO:   RC.text,
+    }
+
+    const pieData = Object.entries(conteo).map(([estado, count]) => ({
+        name:  estado.charAt(0) + estado.slice(1).toLowerCase(),
+        value: count,
+        color: ESTADO_COLORES[estado] ?? RC.purple,
+    }))
+
+    const total = pieData.reduce((s, p) => s + p.value, 0)
+
+    const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+        if (percent < 0.08) return null
         const radius = innerRadius + (outerRadius - innerRadius) * 0.5
         const x = cx + radius * Math.cos(-midAngle * RADIAN)
         const y = cy + radius * Math.sin(-midAngle * RADIAN)
@@ -346,49 +497,71 @@ function GraficoTickets() {
                         <PieIcon size={15} style={{ color: '#e9c46a' }} />
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Distribución de tickets</h3>
-                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>General · Familiar · FastPass</p>
+                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Estado de atracciones</h3>
+                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Distribución por estado operacional</p>
                     </div>
                 </div>
             </div>
             <div className="p-4 flex items-center gap-6">
-                <div style={{ height: 200, width: 200, flexShrink: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={TICKETS_BREAKDOWN} cx="50%" cy="50%" innerRadius={55} outerRadius={90}
-                                 paddingAngle={3} dataKey="value" labelLine={false} label={renderLabel}>
-                                {TICKETS_BREAKDOWN.map((entry, i) => (
-                                    <Cell key={i} fill={entry.color} stroke="transparent" />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<ChartTooltip suffix="%" />} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-3">
-                    {TICKETS_BREAKDOWN.map((t) => (
-                        <div key={t.name}>
-                            <div className="flex justify-between text-xs mb-1">
-                <span className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />
-                  <span style={{ color: 'var(--c-dim)' }}>{t.name}</span>
-                </span>
-                                <span className="font-mono font-bold" style={{ fontFamily: 'var(--font-mono)', color: t.color }}>{t.value}%</span>
+                {loading
+                    ? <Skeleton style={{ height: 200, width: '100%' }} className="rounded-xl" />
+                    : (
+                        <>
+                            <div style={{ height: 200, width: 200, flexShrink: 0 }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={90}
+                                             paddingAngle={3} dataKey="value" labelLine={false} label={renderLabel}>
+                                            {pieData.map((entry, i) => (
+                                                <Cell key={i} fill={entry.color} stroke="transparent" />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<ChartTooltip suffix=" atracciones" />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </div>
-                            <ProgressBar value={t.value} max={100} color={t.color} />
-                        </div>
-                    ))}
-                    <div className="pt-2 border-t" style={{ borderColor: 'var(--c-border)' }}>
-                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Total 312 tickets vendidos hoy</p>
-                    </div>
-                </div>
+                            <div className="flex-1 space-y-3">
+                                {pieData.map((t) => (
+                                    <div key={t.name}>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />
+                                                <span style={{ color: 'var(--c-dim)' }}>{t.name}</span>
+                                            </span>
+                                            <span className="font-mono font-bold" style={{ fontFamily: 'var(--font-mono)', color: t.color }}>
+                                                {t.value}
+                                            </span>
+                                        </div>
+                                        <ProgressBar value={t.value} max={total} color={t.color} />
+                                    </div>
+                                ))}
+                                <div className="pt-2 border-t" style={{ borderColor: 'var(--c-border)' }}>
+                                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Total {total} atracciones registradas</p>
+                                </div>
+                            </div>
+                        </>
+                    )
+                }
             </div>
         </div>
     )
 }
 
-// ─── Gráfico 5: Semana actual ─────────────────────────────────────────────────
-function GraficoSemana() {
+// ─── Gráfico 5: Ocupación por zona (reemplaza tendencia semanal DEMO) ─────────
+// Campos reales: zonas[].visitantesActuales, .capacidadMaxima, .nombre, .cantidadAtracciones
+function GraficoOcupacionZonas({ zonas, loading }) {
+    const dataZonas = (zonas ?? []).map((z, i) => ({
+        zona:        z.nombre,
+        visitantes:  z.visitantesActuales ?? 0,
+        capacidad:   z.capacidadMaxima ?? 0,
+        atracciones: z.cantidadAtracciones ?? 0,
+        ocupacion:   z.capacidadMaxima > 0
+            ? Math.round(((z.visitantesActuales ?? 0) / z.capacidadMaxima) * 100)
+            : 0,
+        llena:       z.estaLlena ?? false,
+        color:       RAINBOW_COLORS[i % RAINBOW_COLORS.length],
+    }))
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
@@ -397,39 +570,94 @@ function GraficoSemana() {
                         <Calendar size={15} style={{ color: '#457b9d' }} />
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Tendencia semanal</h3>
-                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Visitantes e ingresos — últimos 7 días</p>
+                        <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Ocupación por zona</h3>
+                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Visitantes actuales vs capacidad máxima</p>
                     </div>
                 </div>
             </div>
             <div className="p-4" style={{ height: 240 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={SEMANA} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barGap={4}>
-                        <CartesianGrid {...CHART_PROPS.cartesianGrid} />
-                        <XAxis dataKey="dia" {...CHART_PROPS.xAxis} />
-                        <YAxis yAxisId="left"  orientation="left"  tickFormatter={v => v}          {...CHART_PROPS.yAxis} />
-                        <YAxis yAxisId="right" orientation="right" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} {...CHART_PROPS.yAxis} />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Bar yAxisId="left"  dataKey="visitantes" name="Visitantes" radius={[4,4,0,0]}>
-                            {SEMANA.map((entry, i) => (
-                                <Cell key={i} fill={entry.dia === 'Hoy' ? RC.teal : RC.blue} fillOpacity={entry.dia === 'Hoy' ? 1 : 0.5} />
-                            ))}
-                        </Bar>
-                        <Bar yAxisId="right" dataKey="ingresos"   name="Ingresos ($)" radius={[4,4,0,0]}>
-                            {SEMANA.map((entry, i) => (
-                                <Cell key={i} fill={entry.dia === 'Hoy' ? RC.green : RC.purple} fillOpacity={entry.dia === 'Hoy' ? 1 : 0.45} />
-                            ))}
-                        </Bar>
-                        <Legend formatter={v => <span style={{ color: 'var(--c-muted)', fontSize: 11 }}>{v}</span>} />
-                    </BarChart>
-                </ResponsiveContainer>
+                {loading
+                    ? <Skeleton style={{ height: '100%' }} />
+                    : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={dataZonas} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barGap={4}>
+                                <CartesianGrid {...CHART_PROPS.cartesianGrid} />
+                                <XAxis dataKey="zona" {...CHART_PROPS.xAxis} />
+                                <YAxis {...CHART_PROPS.yAxis} />
+                                <Tooltip content={<ChartTooltip suffix=" personas" />} />
+                                <Bar dataKey="capacidad"  name="Capacidad máx." radius={[4, 4, 0, 0]} fill="rgba(255,255,255,0.07)" />
+                                <Bar dataKey="visitantes" name="Visitantes actuales" radius={[4, 4, 0, 0]}>
+                                    {dataZonas.map((entry, i) => (
+                                        <Cell key={i} fill={entry.color} fillOpacity={entry.llena ? 1 : 0.75} />
+                                    ))}
+                                </Bar>
+                                <Legend formatter={v => <span style={{ color: 'var(--c-muted)', fontSize: 11 }}>{v}</span>} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )
+                }
             </div>
         </div>
     )
 }
 
-// ─── Gráfico 6: Radar rendimiento por zona ────────────────────────────────────
-function GraficoRadar() {
+// ─── Gráfico 6: Radar rendimiento por zona ─────────────────────────────────────
+// Campos reales: zonas[].visitantesActuales, .capacidadMaxima, .cantidadAtracciones
+// Métricas calculadas desde datos reales
+function GraficoRadar({ zonas, atracciones, loading }) {
+    // Construir métricas normalizadas por zona
+    const maxVisitantes = Math.max(...(zonas ?? []).map(z => z.visitantesActuales ?? 0), 1)
+    const maxCapacidad  = Math.max(...(zonas ?? []).map(z => z.capacidadMaxima ?? 0), 1)
+    const maxAtracciones= Math.max(...(zonas ?? []).map(z => z.cantidadAtracciones ?? 0), 1)
+
+    // Para cada zona, calcular % de atracciones abiertas
+    const atraccionesPorZona = (atracciones ?? []).reduce((acc, a) => {
+        // El backend no retorna idZona en atracciones, pero podemos usar el total
+        return acc
+    }, {})
+
+    const radarData = [
+        {
+            metric: 'Ocupación',
+            ...(zonas ?? []).reduce((acc, z) => ({
+                ...acc,
+                [z.nombre]: z.capacidadMaxima > 0
+                    ? Math.round(((z.visitantesActuales ?? 0) / z.capacidadMaxima) * 100)
+                    : 0,
+            }), {}),
+        },
+        {
+            metric: 'Visitantes',
+            ...(zonas ?? []).reduce((acc, z) => ({
+                ...acc,
+                [z.nombre]: Math.round(((z.visitantesActuales ?? 0) / maxVisitantes) * 100),
+            }), {}),
+        },
+        {
+            metric: 'Atracciones',
+            ...(zonas ?? []).reduce((acc, z) => ({
+                ...acc,
+                [z.nombre]: Math.round(((z.cantidadAtracciones ?? 0) / maxAtracciones) * 100),
+            }), {}),
+        },
+        {
+            metric: 'Capacidad',
+            ...(zonas ?? []).reduce((acc, z) => ({
+                ...acc,
+                [z.nombre]: Math.round(((z.capacidadMaxima ?? 0) / maxCapacidad) * 100),
+            }), {}),
+        },
+        {
+            metric: 'Disponibilidad',
+            ...(zonas ?? []).reduce((acc, z) => ({
+                ...acc,
+                [z.nombre]: z.estaLlena ? 0 : 100,
+            }), {}),
+        },
+    ]
+
+    const zonaColors = [RC.orange, RC.blue, RC.purple, RC.teal, RC.red]
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
@@ -444,30 +672,111 @@ function GraficoRadar() {
                 </div>
             </div>
             <div className="p-4" style={{ height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={RADAR_DATA} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
-                        <PolarGrid stroke={RC.grid} />
-                        <PolarAngleAxis dataKey="metric" tick={{ fill: RC.text, fontSize: 11, fontFamily: 'var(--font-body)' }} />
-                        <Radar name="Aventura"     dataKey="aventura"     stroke={RC.orange} fill={RC.orange} fillOpacity={0.15} strokeWidth={1.5} />
-                        <Radar name="Acuática"     dataKey="acuatica"     stroke={RC.blue}   fill={RC.blue}   fillOpacity={0.12} strokeWidth={1.5} />
-                        <Radar name="Espectáculos" dataKey="espectaculos" stroke={RC.purple}  fill={RC.purple}  fillOpacity={0.12} strokeWidth={1.5} />
-                        <Legend formatter={v => <span style={{ color: 'var(--c-muted)', fontSize: 11 }}>{v}</span>} />
-                        <Tooltip content={<ChartTooltip />} />
-                    </RadarChart>
-                </ResponsiveContainer>
+                {loading
+                    ? <Skeleton style={{ height: '100%' }} />
+                    : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart data={radarData} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
+                                <PolarGrid stroke={RC.grid} />
+                                <PolarAngleAxis dataKey="metric" tick={{ fill: RC.text, fontSize: 11, fontFamily: 'var(--font-body)' }} />
+                                {(zonas ?? []).map((z, i) => (
+                                    <Radar
+                                        key={z.id}
+                                        name={z.nombre}
+                                        dataKey={z.nombre}
+                                        stroke={zonaColors[i % zonaColors.length]}
+                                        fill={zonaColors[i % zonaColors.length]}
+                                        fillOpacity={0.13}
+                                        strokeWidth={1.5}
+                                    />
+                                ))}
+                                <Legend formatter={v => <span style={{ color: 'var(--c-muted)', fontSize: 11 }}>{v}</span>} />
+                                <Tooltip content={<ChartTooltip suffix="%" />} />
+                            </RadarChart>
+                        </ResponsiveContainer>
+                    )
+                }
             </div>
         </div>
     )
 }
 
-// ─── Alertas estadísticas ─────────────────────────────────────────────────────
-function AlertasEstadisticas() {
-    const alertas = [
-        { tipo: 'CRITICO',  icono: Flame,         color: '#e63946', msg: 'Show Holográfico: 42 en cola — umbral de 40 superado.',       badge: 'Alta demanda'  },
-        { tipo: 'AVISO',    icono: AlertTriangle,  color: '#f4a261', msg: 'Zona Aventura al 52% de aforo — tendencia ascendente.',       badge: 'Monitorear'    },
-        { tipo: 'INFO',     icono: TrendingUp,     color: '#2a9d8f', msg: 'Ingresos hoy +22% vs ayer — mejor día de la semana.',         badge: 'Positivo'      },
-        { tipo: 'AVISO',    icono: Shield,         color: '#e9c46a', msg: 'Torre del Terror en mantenimiento — desviar visitantes.',     badge: 'Mantenimiento' },
-    ]
+// ─── Alertas estadísticas (generadas desde datos reales) ─────────────────────
+// Fuentes reales: atracciones con cola/espera alta, zonas llenas, alertas mantenimiento/clima
+function AlertasEstadisticas({ atracciones, zonas, mantenimiento, climaticas, loading }) {
+    if (loading) {
+        return (
+            <div className="glass rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
+                    <Skeleton style={{ height: 20, width: '60%' }} />
+                </div>
+                <div className="p-4 space-y-2">
+                    {[1, 2, 3].map(k => <Skeleton key={k} style={{ height: 56 }} className="rounded-xl" />)}
+                </div>
+            </div>
+        )
+    }
+
+    const alertas = []
+
+        // 1. Alertas climáticas activas
+    ;(climaticas ?? [])
+        .filter(c => c.activa)
+        .forEach(c => {
+            alertas.push({
+                icono: CloudLightning,
+                color: '#e63946',
+                msg:   `Alerta climática activa: ${c.tipo?.replace('_', ' ') ?? 'Clima'} — atracciones afectadas: ${c.atraccionesAfectadas ?? 0}`,
+                badge: 'Clima',
+            })
+        })
+
+    // 2. Atracciones con espera superior al umbral (20 min)
+    ;(atracciones ?? [])
+        .filter(a => a.tiempoEsperaEstimado > 20 && a.estado === 'ABIERTA')
+        .slice(0, 2)
+        .forEach(a => {
+            alertas.push({
+                icono: Flame,
+                color: '#f4a261',
+                msg:   `${a.nombre}: ${a.tiempoEsperaEstimado} min de espera — umbral de 20 min superado.`,
+                badge: 'Alta demanda',
+            })
+        })
+
+    // 3. Zonas a más del 80% de aforo
+    ;(zonas ?? [])
+        .filter(z => z.capacidadMaxima > 0 && (z.visitantesActuales / z.capacidadMaxima) >= 0.8)
+        .forEach(z => {
+            const pct = Math.round((z.visitantesActuales / z.capacidadMaxima) * 100)
+            alertas.push({
+                icono: AlertTriangle,
+                color: '#e9c46a',
+                msg:   `${z.nombre} al ${pct}% de aforo${z.estaLlena ? ' — acceso suspendido.' : ' — monitorear.'}`,
+                badge: z.estaLlena ? 'Llena' : 'Monitorear',
+            })
+        })
+
+    // 4. Alertas de mantenimiento pendientes
+    const pendientes = (mantenimiento ?? []).filter(m => !m.resuelta)
+    if (pendientes.length > 0) {
+        alertas.push({
+            icono: Wrench,
+            color: '#6a4c93',
+            msg:   `${pendientes.length} alerta${pendientes.length > 1 ? 's' : ''} de mantenimiento sin resolver.`,
+            badge: 'Mantenimiento',
+        })
+    }
+
+    // 5. Sin alertas
+    if (alertas.length === 0) {
+        alertas.push({
+            icono: TrendingUp,
+            color: '#2a9d8f',
+            msg:   'Sin anomalías detectadas. Operación normal.',
+            badge: 'OK',
+        })
+    }
 
     return (
         <div className="glass rounded-2xl overflow-hidden">
@@ -481,7 +790,7 @@ function AlertasEstadisticas() {
                 </div>
             </div>
             <div className="p-4 space-y-2">
-                {alertas.map((a, i) => {
+                {alertas.slice(0, 5).map((a, i) => {
                     const Ico = a.icono
                     return (
                         <div key={i} className="flex items-start gap-3 rounded-xl p-3"
@@ -495,8 +804,8 @@ function AlertasEstadisticas() {
                             </p>
                             <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-semibold"
                                   style={{ background: `${a.color}18`, color: a.color, border: `0.5px solid ${a.color}30`, fontFamily: 'var(--font-display)' }}>
-                {a.badge}
-              </span>
+                                {a.badge}
+                            </span>
                         </div>
                     )
                 })}
@@ -505,13 +814,41 @@ function AlertasEstadisticas() {
     )
 }
 
-// ─── Panel rendimiento por zona ───────────────────────────────────────────────
-function RendimientoZonas() {
-    const data = [
-        { zona: 'Zona Aventura',     ocupacion: 52, ingresos: 5200, eficiencia: 78, color: '#f4a261', icono: '🎢' },
-        { zona: 'Zona Acuática',     ocupacion: 58, ingresos: 4100, eficiencia: 73, color: '#457b9d', icono: '🌊' },
-        { zona: 'Zona Espectáculos', ocupacion: 27, ingresos: 3150, eficiencia: 80, color: '#6a4c93', icono: '🎭' },
-    ]
+// ─── Panel rendimiento por zona ────────────────────────────────────────────────
+// Campos reales: zonas[].nombre, .visitantesActuales, .capacidadMaxima, .cantidadAtracciones, .estaLlena
+function RendimientoZonas({ zonas, loading }) {
+    const ICONOS_ZONA = ['🎢', '🌊', '🎭', '🎡', '🏄']
+
+    if (loading) {
+        return (
+            <div className="glass rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b"><Skeleton style={{ height: 20, width: '50%' }} /></div>
+                <div className="p-5 space-y-5">
+                    {[1, 2, 3].map(k => <Skeleton key={k} style={{ height: 72 }} className="rounded-xl" />)}
+                </div>
+            </div>
+        )
+    }
+
+    const zonaColors = [RC.orange, RC.blue, RC.purple, RC.teal, RC.red]
+
+    const data = (zonas ?? []).map((z, i) => {
+        const ocupacion = z.capacidadMaxima > 0
+            ? Math.round(((z.visitantesActuales ?? 0) / z.capacidadMaxima) * 100)
+            : 0
+        // "eficiencia" operacional: % de atracciones disponibles × ocupación
+        // Sin más datos reales, usamos ocupación como métrica directa
+        return {
+            zona:        z.nombre,
+            visitantes:  z.visitantesActuales ?? 0,
+            capacidad:   z.capacidadMaxima ?? 0,
+            atracciones: z.cantidadAtracciones ?? 0,
+            ocupacion,
+            llena:       z.estaLlena ?? false,
+            color:       zonaColors[i % zonaColors.length],
+            icono:       ICONOS_ZONA[i % ICONOS_ZONA.length],
+        }
+    })
 
     return (
         <div className="glass rounded-2xl overflow-hidden">
@@ -521,7 +858,7 @@ function RendimientoZonas() {
                 </div>
                 <div>
                     <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Rendimiento por zona</h3>
-                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Ocupación, ingresos y eficiencia</p>
+                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Ocupación y atracciones activas</p>
                 </div>
             </div>
             <div className="p-5 space-y-5">
@@ -531,10 +868,16 @@ function RendimientoZonas() {
                             <div className="flex items-center gap-2">
                                 <span className="text-lg">{z.icono}</span>
                                 <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>{z.zona}</span>
+                                {z.llena && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-full font-bold"
+                                          style={{ background: `${RC.red}20`, color: RC.red, border: `0.5px solid ${RC.red}30` }}>
+                                        LLENA
+                                    </span>
+                                )}
                             </div>
                             <span className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: z.color }}>
-                {formatPeso(z.ingresos)}
-              </span>
+                                {z.visitantes} / {z.capacidad}
+                            </span>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -546,10 +889,10 @@ function RendimientoZonas() {
                             </div>
                             <div>
                                 <div className="flex justify-between text-xs mb-1">
-                                    <span style={{ color: 'var(--c-muted)' }}>Eficiencia</span>
-                                    <span className="font-mono" style={{ fontFamily: 'var(--font-mono)', color: '#22c55e' }}>{z.eficiencia}%</span>
+                                    <span style={{ color: 'var(--c-muted)' }}>Atracciones</span>
+                                    <span className="font-mono" style={{ fontFamily: 'var(--font-mono)', color: '#22c55e' }}>{z.atracciones}</span>
                                 </div>
-                                <ProgressBar value={z.eficiencia} max={100} color="#22c55e" />
+                                <ProgressBar value={z.atracciones} max={Math.max(...(zonas ?? []).map(zz => zz.cantidadAtracciones ?? 0), 1)} color="#22c55e" />
                             </div>
                         </div>
                     </div>
@@ -560,7 +903,27 @@ function RendimientoZonas() {
 }
 
 // ─── Tabla cierres por clima ──────────────────────────────────────────────────
-function TablaCierresClima() {
+// Campos reales: alertaClimatica.tipo, .activa, .atraccionesAfectadas (size), .id
+function TablaCierresClima({ climaticas, loading }) {
+    if (loading) {
+        return (
+            <div className="glass rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b"><Skeleton style={{ height: 20, width: '50%' }} /></div>
+                <div className="p-4 space-y-2">
+                    {[1, 2].map(k => <Skeleton key={k} style={{ height: 40 }} className="rounded" />)}
+                </div>
+            </div>
+        )
+    }
+
+    const cierres = (climaticas ?? [])
+        .map(c => ({
+            tipo:         c.tipo?.replace(/_/g, ' ') ?? '—',
+            atraccionesN: c.atraccionesAfectadas ?? 0,
+            activa:       c.activa ?? false,
+            id:           c.id,
+        }))
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b flex items-center gap-3" style={{ borderColor: 'var(--c-border)' }}>
@@ -573,29 +936,78 @@ function TablaCierresClima() {
                 </div>
             </div>
             <div className="overflow-x-auto">
-                <table className="tp-table">
-                    <thead>
-                    <tr><th>Tipo</th><th>Hora</th><th>Atracciones afectadas</th><th>Estado</th></tr>
-                    </thead>
-                    <tbody>
-                    {CIERRES_CLIMA.map((c, i) => (
-                        <tr key={i}>
-                            <td><span className="text-sm" style={{ color: 'var(--c-text)' }}>{c.tipo}</span></td>
-                            <td><span className="font-mono text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-muted)' }}>{c.fecha}</span></td>
-                            <td><span className="text-xs" style={{ color: 'var(--c-dim)' }}>{c.atracciones}</span></td>
-                            <td><Badge variant={c.activa ? 'pending' : 'resolved'} dot>{c.activa ? 'Activa' : 'Resuelta'}</Badge></td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
+                {cierres.length === 0
+                    ? (
+                        <div className="p-6 text-center">
+                            <p className="text-sm" style={{ color: 'var(--c-muted)' }}>Sin alertas climáticas registradas</p>
+                        </div>
+                    )
+                    : (
+                        <table className="tp-table">
+                            <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Atracciones afectadas</th>
+                                <th>Estado</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {cierres.map((c, i) => (
+                                <tr key={c.id ?? i}>
+                                    <td><span className="text-sm" style={{ color: 'var(--c-text)' }}>{c.tipo}</span></td>
+                                    <td>
+                                            <span className="font-mono text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-muted)' }}>
+                                                {c.atraccionesN} atracción{c.atraccionesN !== 1 ? 'es' : ''}
+                                            </span>
+                                    </td>
+                                    <td>
+                                        <Badge variant={c.activa ? 'pending' : 'resolved'} dot>
+                                            {c.activa ? 'Activa' : 'Resuelta'}
+                                        </Badge>
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    )
+                }
             </div>
         </div>
     )
 }
 
-// ─── Incidentes por atracción ─────────────────────────────────────────────────
-function IncidentesPorAtraccion() {
-    const max = Math.max(...INCIDENTES.map(i => i.incidentes))
+// ─── Incidentes por atracción (desde alertas de mantenimiento reales) ─────────
+// Campos reales: alertaMantenimiento.atraccion (nombre), .resuelta
+function IncidentesPorAtraccion({ mantenimiento, loading }) {
+    if (loading) {
+        return (
+            <div className="glass rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b"><Skeleton style={{ height: 20, width: '60%' }} /></div>
+                <div className="p-5 space-y-3">
+                    {[1, 2, 3].map(k => <Skeleton key={k} style={{ height: 36 }} className="rounded" />)}
+                </div>
+            </div>
+        )
+    }
+
+    // Agrupar alertas de mantenimiento por atracción
+    const conteo = (mantenimiento ?? []).reduce((acc, m) => {
+        const nombre = m.atraccion ?? m.idAtraccion ?? 'Desconocida'
+        acc[nombre] = (acc[nombre] ?? 0) + 1
+        return acc
+    }, {})
+
+    const incidentes = Object.entries(conteo)
+        .map(([atraccion, n], i) => ({
+            atraccion,
+            incidentes: n,
+            color: RAINBOW_COLORS[i % RAINBOW_COLORS.length],
+        }))
+        .sort((a, b) => b.incidentes - a.incidentes)
+        .slice(0, 6)
+
+    const max = Math.max(...incidentes.map(i => i.incidentes), 1)
+
     return (
         <div className="glass rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b flex items-center gap-3" style={{ borderColor: 'var(--c-border)' }}>
@@ -604,29 +1016,36 @@ function IncidentesPorAtraccion() {
                 </div>
                 <div>
                     <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Atracciones con más incidentes</h3>
-                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Histórico de mantenimiento no programado</p>
+                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Histórico de alertas de mantenimiento</p>
                 </div>
             </div>
             <div className="p-5 space-y-3">
-                {INCIDENTES.map((item, i) => (
-                    <div key={i} className="flex items-center gap-4">
-            <span
-                className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: `${item.color}20`, color: item.color, fontFamily: 'var(--font-display)' }}
-            >
-              {i + 1}
-            </span>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between text-xs mb-1">
-                                <span className="truncate" style={{ color: 'var(--c-dim)' }}>{item.atraccion}</span>
-                                <span className="font-mono font-bold ml-2 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: item.color }}>
-                  {item.incidentes} inc.
-                </span>
-                            </div>
-                            <ProgressBar value={item.incidentes} max={max} color={item.color} />
+                {incidentes.length === 0
+                    ? (
+                        <div className="text-center py-4">
+                            <p className="text-sm" style={{ color: 'var(--c-muted)' }}>Sin alertas de mantenimiento registradas</p>
                         </div>
-                    </div>
-                ))}
+                    )
+                    : incidentes.map((item, i) => (
+                        <div key={item.atraccion} className="flex items-center gap-4">
+                            <span
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                style={{ background: `${item.color}20`, color: item.color, fontFamily: 'var(--font-display)' }}
+                            >
+                                {i + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className="truncate" style={{ color: 'var(--c-dim)' }}>{item.atraccion}</span>
+                                    <span className="font-mono font-bold ml-2 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: item.color }}>
+                                        {item.incidentes} inc.
+                                    </span>
+                                </div>
+                                <ProgressBar value={item.incidentes} max={max} color={item.color} />
+                            </div>
+                        </div>
+                    ))
+                }
             </div>
         </div>
     )
@@ -635,27 +1054,33 @@ function IncidentesPorAtraccion() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Estadisticas() {
     const [lastUpdate, setLastUpdate] = useState(new Date())
-    const [refreshing, setRefreshing] = useState(false)
+    const { data, loading, error, recargar } = useEstadisticas()
+    const [refreshing, setRefreshing]  = useState(false)
 
     async function handleRefresh() {
         setRefreshing(true)
-        try {
-            await estadisticasService.getIngresos()
-        } catch {}
-        await new Promise(r => setTimeout(r, 800))
+        await recargar()
         setLastUpdate(new Date())
         setRefreshing(false)
     }
 
+    const { resumen, jornada, atracciones, zonas, mantenimiento, climaticas } = data ?? {}
+
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8" style={{ background: 'var(--c-night)' }}>
+
             {/* Top bar */}
             <div className="flex items-center justify-between mb-2">
                 <div />
                 <div className="flex items-center gap-3">
-          <span className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>
-            Actualizado: {lastUpdate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-          </span>
+                    {error && (
+                        <span className="text-xs font-mono" style={{ color: RC.red, fontFamily: 'var(--font-mono)' }}>
+                            Error: {error}
+                        </span>
+                    )}
+                    <span className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>
+                        Actualizado: {lastUpdate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                     <Button variant="ghost" size="sm" loading={refreshing} onClick={handleRefresh}>
                         <RefreshCw size={13} /> Actualizar
                     </Button>
@@ -663,37 +1088,43 @@ export default function Estadisticas() {
             </div>
 
             {/* Hero */}
-            <HeroEstadisticas />
+            <HeroEstadisticas resumen={resumen} jornada={jornada} loading={loading} />
 
             {/* KPIs */}
-            <KPIsRapidos />
+            <KPIsRapidos resumen={resumen} jornada={jornada} atracciones={atracciones} loading={loading} />
 
             <div className="h-px mb-8" style={{ background: 'var(--c-border)' }} />
 
             {/* Main charts grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <GraficoIngresos />
-                <GraficoAtracciones />
-                <GraficoTiemposEspera />
-                <GraficoTickets />
+                <GraficoIngresos   zonas={zonas} resumen={resumen} jornada={jornada} loading={loading} />
+                <GraficoAtracciones atracciones={atracciones} loading={loading} />
+                <GraficoTiemposEspera atracciones={atracciones} loading={loading} />
+                <GraficoEstadosAtracciones atracciones={atracciones} loading={loading} />
             </div>
 
-            {/* Full-width weekly chart */}
+            {/* Full-width zona chart */}
             <div className="mb-6">
-                <GraficoSemana />
+                <GraficoOcupacionZonas zonas={zonas} loading={loading} />
             </div>
 
             {/* Bottom grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <GraficoRadar />
-                <AlertasEstadisticas />
-                <RendimientoZonas />
+                <GraficoRadar      zonas={zonas} atracciones={atracciones} loading={loading} />
+                <AlertasEstadisticas
+                    atracciones={atracciones}
+                    zonas={zonas}
+                    mantenimiento={mantenimiento}
+                    climaticas={climaticas}
+                    loading={loading}
+                />
+                <RendimientoZonas  zonas={zonas} loading={loading} />
             </div>
 
             {/* Bottom row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <TablaCierresClima />
-                <IncidentesPorAtraccion />
+                <TablaCierresClima    climaticas={climaticas} loading={loading} />
+                <IncidentesPorAtraccion mantenimiento={mantenimiento} loading={loading} />
             </div>
         </div>
     )

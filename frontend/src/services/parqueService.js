@@ -1,12 +1,13 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: 'http://localhost:8080/api',
+    baseURL: '/api',
     timeout: 8000,
     headers: { 'Content-Type': 'application/json' },
 })
 
-// ─── Interceptor global de errores ──────────────────────────────────────────
+
+
 api.interceptors.response.use(
     (res) => res,
     (err) => {
@@ -20,70 +21,106 @@ export const parqueService = {
     cargarDatos:       () => api.post('/parque/cargar-datos'),
     cargarDatosPrueba: () => api.post('/parque/cargar-datos-prueba'),
     estadoCarga:       () => api.get('/parque/estado-carga'),
-    getZonas:          () => api.get('/parque/zonas'),
-    getAtracciones:    () => api.get('/parque/atracciones'),
-    getEstado:         () => api.get('/parque/estado'),
+    getInfo:           () => api.get('/parque/info'),
+    getMapa:           () => api.get('/parque/mapa'),
+    getRutaOptima:     (origen, destino) =>
+        api.get(`/parque/ruta-optima?origen=${origen}&destino=${destino}`),
 }
 
 // ─── Zonas ───────────────────────────────────────────────────────────────────
 export const zonaService = {
-    getAll:   ()       => api.get('/zonas'),
-    create:   (data)   => api.post('/zonas', data),
-    delete:   (id)     => api.delete(`/zonas/${id}`),
+    getAll:         ()     => api.get('/zonas'),
+    getById:        (id)   => api.get(`/zonas/${id}`),
+    create:         (data) => api.post('/zonas', data),
+    delete:         (id)   => api.delete(`/zonas/${id}`),
+    getAtracciones: (id)   => api.get(`/zonas/${id}/atracciones`),
+    getOperadores:  (id)   => api.get(`/zonas/${id}/operadores`),
 }
 
 // ─── Atracciones ─────────────────────────────────────────────────────────────
 export const atraccionService = {
-    getAll:           ()     => api.get('/atracciones'),
-    getById:          (id)   => api.get(`/atracciones/${id}`),
-    getByZona:        (zona) => api.get(`/atracciones/zona/${zona}`),
-    registrarRevision:(id)   => api.post(`/atracciones/${id}/revision-tecnica`),
+    getAll:          ()           => api.get('/atracciones'),
+    getById:         (id)         => api.get(`/atracciones/${id}`),
+    getCola:         (id)         => api.get(`/atracciones/${id}/cola`),
+    ingresar:        (id, vidId)  =>
+        api.post(`/atracciones/${id}/ingresar?idVisitante=${vidId}`),
+    procesarCola:    (id)         => api.post(`/atracciones/${id}/procesar-cola`),
+    cambiarEstado:   (id, estado) => api.put(`/atracciones/${id}/estado`, { estado }),
+    registrarRevision: (id)       => api.post(`/atracciones/${id}/revision-tecnica`),
 }
 
 // ─── Operadores ──────────────────────────────────────────────────────────────
 export const operadorService = {
-    getAll:      ()              => api.get('/operadores'),
-    create:      (data)          => api.post('/operadores', data),
-    delete:      (id)            => api.delete(`/operadores/${id}`),
-    asignarZona: (id, zonaId)    => api.put(`/operadores/${id}/zona/${zonaId}`),
+    getAll:      ()             => api.get('/operadores'),
+    getById:     (id)           => api.get(`/operadores/${id}`),
+    create:      (data)         => api.post('/operadores', data),
+    delete:      (id)           => api.delete(`/operadores/${id}`),
+    asignarZona: (id, zonaId)   =>
+        api.post(`/operadores/${id}/asignar-zona?idZona=${zonaId}`),
 }
 
 // ─── Visitantes ──────────────────────────────────────────────────────────────
 export const visitanteService = {
-    getAll:         ()              => api.get('/visitantes'),
-    registrar:      (data)          => api.post('/visitantes', data),
-    unirseACola:    (id, atraccion) => api.post(`/visitantes/${id}/cola/${atraccion}`),
-    getPosicion:    (id, atraccion) => api.get(`/visitantes/${id}/cola/${atraccion}`),
-    getHistorial:   (id)            => api.get(`/visitantes/${id}/historial`),
-    getFavoritos:   (id)            => api.get(`/visitantes/${id}/favoritos`),
-    quitarFavorito: (id, atraccion) => api.delete(`/visitantes/${id}/favoritos/${atraccion}`),
-    getRutaSugerida:(id, destino)   => api.get(`/visitantes/${id}/ruta/${destino}`),
-    getNotificaciones:(id)          => api.get(`/visitantes/${id}/notificaciones`),
+    registrar:       (data)            => api.post('/visitantes/registrar', data),
+    getHistorial:    (id)              => api.get(`/visitantes/${id}/historial`),
+    getSaldo:        (id)              => api.get(`/visitantes/${id}/saldo`),
+    agregarFavorito: (id, atraccionId) =>
+        api.post(`/visitantes/${id}/favorito?idAtraccion=${atraccionId}`),
+    unirseACola:     (atraccionId, visitanteId) =>
+        api.post(`/atracciones/${atraccionId}/ingresar?idVisitante=${visitanteId}`),
+    getPosicionCola: (atraccionId)     =>
+        api.get(`/atracciones/${atraccionId}/cola`),
 }
 
-// ─── Rutas / Grafo ───────────────────────────────────────────────────────────
+// ─── Alertas ─────────────────────────────────────────────────────────────────
+export const alertaService = {
+    getMantenimiento:      ()    => api.get('/alertas/mantenimiento'),
+    getPendientes:         ()    => api.get('/alertas/mantenimiento/pendientes'),
+    resolverMantenimiento: (id)  => api.post(`/alertas/mantenimiento/${id}/resolver`),
+    getClimaticas:         ()    => api.get('/alertas/climaticas'),
+    getClimaticasActivas:  ()    => api.get('/alertas/climaticas/activas'),
+    activarTormenta:       ()    =>
+        api.post('/alertas/climaticas', { tipo: 'TORMENTA_ELECTRICA' }),
+    activarLluvia:         ()    =>
+        api.post('/alertas/climaticas', { tipo: 'LLUVIA_FUERTE' }),
+    desactivar:            (id)  =>
+        api.post(`/alertas/climaticas/${id}/desactivar`),
+    getNotificaciones:     (id)  => api.get(`/alertas/notificaciones/${id}`),
+}
+
+// ─── Reportes ─────────────────────────────────────────────────────────────────
+export const reporteService = {
+    getJornada: () => api.get('/reportes/jornada'),
+    getResumen: () => api.get('/reportes/resumen'),
+}
+
+// ─── Rutas / Grafo ────────────────────────────────────────────────────────────
 export const rutaService = {
-    calcularRuta:   (origen, destino) => api.get(`/rutas/dijkstra?origen=${origen}&destino=${destino}`),
-    getSenderos:    ()                 => api.get('/rutas/senderos'),
-    getColas:       ()                 => api.get('/rutas/colas'),
-    procesarCola:   (atraccionId)      => api.post(`/rutas/colas/${atraccionId}/procesar`),
-    getFlujoPorZona:()                 => api.get('/rutas/flujo'),
+    calcularRuta:    (origen, destino) =>
+        api.get(`/parque/ruta-optima?origen=${origen}&destino=${destino}`),
+    getSenderos:     ()                => api.get('/parque/mapa'),
+    getColas:        ()                => api.get('/atracciones'),
+    procesarCola:    (id)              => api.post(`/atracciones/${id}/procesar-cola`),
+    getFlujoPorZona: ()                => api.get('/zonas'),
 }
 
-// ─── Clima ───────────────────────────────────────────────────────────────────
+// ─── Clima (alias de alertaService para compatibilidad con Administracion.jsx)
 export const climaService = {
-    activarTormenta: () => api.post('/alertas/tormenta'),
-    activarLluvia:   () => api.post('/alertas/lluvia'),
-    getAlertasActivas:() => api.get('/alertas'),
-    desactivar:     (id) => api.delete(`/alertas/${id}`),
+    activarTormenta:  ()    =>
+        api.post('/alertas/climaticas', { tipo: 'TORMENTA_ELECTRICA' }),
+    activarLluvia:    ()    =>
+        api.post('/alertas/climaticas', { tipo: 'LLUVIA_FUERTE' }),
+    getAlertasActivas:()    => api.get('/alertas/climaticas/activas'),
+    desactivar:       (id)  =>
+        api.post(`/alertas/climaticas/${id}/desactivar`),
 }
 
-// ─── Estadísticas ────────────────────────────────────────────────────────────
+// ─── Estadísticas (mapeadas a endpoints reales) ───────────────────────────────
 export const estadisticasService = {
-    getIngresos:          () => api.get('/estadisticas/ingresos'),
-    getAtraccionesPopulares:() => api.get('/estadisticas/atracciones-populares'),
-    getTiemposEspera:     () => api.get('/estadisticas/tiempos-espera'),
-    getCierresPorClima:   () => api.get('/estadisticas/cierres-clima'),
-    getAlertasMantenimiento:() => api.get('/estadisticas/mantenimiento'),
-    getIncidentes:        () => api.get('/estadisticas/incidentes'),
+    getIngresos:             () => api.get('/reportes/resumen'),
+    getAtraccionesPopulares: () => api.get('/reportes/jornada'),
+    getTiemposEspera:        () => api.get('/atracciones'),
+    getCierresPorClima:      () => api.get('/alertas/climaticas'),
+    getAlertasMantenimiento: () => api.get('/alertas/mantenimiento'),
+    getIncidentes:           () => api.get('/reportes/jornada'),
 }

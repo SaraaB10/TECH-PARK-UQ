@@ -1,79 +1,47 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
     Users, Zap, AlertTriangle, DollarSign,
     MapPin, Clock, ChevronRight, Rocket,
-    Waves, Star, Activity, TrendingUp,
-    RefreshCw, CheckCircle, XCircle, Settings
+    Activity, TrendingUp, RefreshCw,
+    CheckCircle, XCircle, Loader2,
 } from 'lucide-react'
 import { StatCard } from '@/components/ui/Card'
 import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { parqueService } from '@/services/parqueService'
+import { parqueService, zonaService, atraccionService, reporteService } from '@/services/parqueService'
 
-// ─── Demo data (se reemplaza con la respuesta del backend) ───────────────────
-const DEMO_STATS = {
-    visitantes: 847,
-    capacidadMax: 2000,
-    atraccionesActivas: 4,
-    totalAtracciones: 6,
-    alertas: 2,
-    ingresos: 12450,
-}
-
-const DEMO_ZONAS = [
-    {
-        id: 'aventura',
-        nombre: 'Zona Aventura',
-        capacidadActual: 312,
-        capacidadMax: 600,
-        color: '#f4a261',
-        icono: '🎢',
-        atracciones: [
-            { nombre: 'Montaña Rusa X', estado: 'ACTIVA',           cola: 23, espera: 18 },
-            { nombre: 'Torre del Terror', estado: 'EN_MANTENIMIENTO', cola: 0,  espera: 0  },
-            { nombre: 'Free Fall 360',   estado: 'ACTIVA',           cola: 11, espera: 9  },
-        ],
-    },
-    {
-        id: 'acuatica',
-        nombre: 'Zona Acuática',
-        capacidadActual: 289,
-        capacidadMax: 500,
-        color: '#457b9d',
-        icono: '🌊',
-        atracciones: [
-            { nombre: 'Río Salvaje',    estado: 'ACTIVA',  cola: 18, espera: 14 },
-            { nombre: 'Ola Gigante',    estado: 'CERRADA', cola: 0,  espera: 0  },
-        ],
-    },
-    {
-        id: 'espectaculos',
-        nombre: 'Zona Espectáculos',
-        capacidadActual: 246,
-        capacidadMax: 900,
-        color: '#6a4c93',
-        icono: '🎭',
-        atracciones: [
-            { nombre: 'Show Holográfico', estado: 'ACTIVA', cola: 42, espera: 30 },
-        ],
-    },
+// ─── Paleta de colores para zonas (asignada por índice, no por ID hardcodeado) ─
+const ZONA_PALETTE = [
+    { accent: '#f4a261', glow: 'rgba(244,162,97,0.15)',  icono: '🎢' },
+    { accent: '#457b9d', glow: 'rgba(69,123,157,0.15)',  icono: '🌊' },
+    { accent: '#6a4c93', glow: 'rgba(106,76,147,0.15)',  icono: '🎭' },
+    { accent: '#2a9d8f', glow: 'rgba(42,157,143,0.15)',  icono: '🌿' },
+    { accent: '#e63946', glow: 'rgba(230,57,70,0.15)',   icono: '🚀' },
+    { accent: '#e9c46a', glow: 'rgba(233,196,106,0.15)', icono: '⭐' },
 ]
 
-const ZONA_COLORS = {
-    aventura:     { accent: '#f4a261', glow: 'rgba(244,162,97,0.15)'  },
-    acuatica:     { accent: '#457b9d', glow: 'rgba(69,123,157,0.15)'  },
-    espectaculos: { accent: '#6a4c93', glow: 'rgba(106,76,147,0.15)'  },
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatCurrency(n) {
-    return `$${n.toLocaleString('es-CO')}`
+    if (n == null || isNaN(n)) return '$0'
+    return `$${Number(n).toLocaleString('es-CO')}`
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function getZonaPalette(index) {
+    return ZONA_PALETTE[index % ZONA_PALETTE.length]
+}
 
-function HeroSection({ onCargarDatos, loading, mensaje }) {
+// Estado del backend → color
+function estadoColor(estado) {
+    if (!estado) return '#6b7280'
+    const e = estado.toUpperCase()
+    if (e === 'ACTIVA' || e === 'ABIERTA') return '#22c55e'
+    if (e.includes('MANTENIMIENTO'))       return '#f4a261'
+    return '#e63946'
+}
+
+// ─── Sección Hero ─────────────────────────────────────────────────────────────
+function HeroSection({ onCargarDatos, loading, mensaje, parqueAbierto, quickStats }) {
     return (
         <section className="relative w-full min-h-screen flex flex-col justify-end overflow-hidden">
             {/* Background image */}
@@ -84,7 +52,6 @@ function HeroSection({ onCargarDatos, loading, mensaje }) {
                     className="w-full h-full object-cover object-center"
                     style={{ filter: 'brightness(0.75) saturate(1.1)' }}
                 />
-                {/* Cinematic overlay */}
                 <div
                     className="absolute inset-0"
                     style={{
@@ -92,7 +59,6 @@ function HeroSection({ onCargarDatos, loading, mensaje }) {
                             'linear-gradient(to bottom, rgba(13,15,20,0.25) 0%, rgba(13,15,20,0.4) 40%, rgba(13,15,20,0.92) 85%, rgba(13,15,20,1) 100%)',
                     }}
                 />
-                {/* Rainbow top glow */}
                 <div
                     className="absolute top-0 left-0 right-0 h-1 opacity-80"
                     style={{ background: 'linear-gradient(90deg,#e63946,#f4a261,#e9c46a,#2a9d8f,#457b9d,#6a4c93)' }}
@@ -101,14 +67,22 @@ function HeroSection({ onCargarDatos, loading, mensaje }) {
 
             {/* Hero content */}
             <div className="relative z-10 max-w-7xl mx-auto px-6 pb-16 pt-32 w-full">
-                {/* Status pill */}
-                <div className="animate-fade-up mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border"
-                     style={{ background: 'rgba(13,15,20,0.6)', borderColor: 'rgba(34,197,94,0.3)', backdropFilter: 'blur(8px)' }}>
-                    <span className="status-dot active" />
-                    <span className="text-xs font-semibold tracking-widest uppercase"
-                          style={{ fontFamily: 'var(--font-display)', color: '#22c55e' }}>
-            Parque abierto
-          </span>
+                {/* Status pill — dato real: parque.estaAbierto */}
+                <div
+                    className="animate-fade-up mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border"
+                    style={{
+                        background: 'rgba(13,15,20,0.6)',
+                        borderColor: parqueAbierto ? 'rgba(34,197,94,0.3)' : 'rgba(230,57,70,0.3)',
+                        backdropFilter: 'blur(8px)',
+                    }}
+                >
+                    <span className={`status-dot ${parqueAbierto ? 'active' : ''}`} />
+                    <span
+                        className="text-xs font-semibold tracking-widest uppercase"
+                        style={{ fontFamily: 'var(--font-display)', color: parqueAbierto ? '#22c55e' : '#e63946' }}
+                    >
+                        {parqueAbierto ? 'Parque abierto' : 'Parque cerrado'}
+                    </span>
                 </div>
 
                 {/* Title */}
@@ -164,24 +138,17 @@ function HeroSection({ onCargarDatos, loading, mensaje }) {
                             fontFamily: 'var(--font-body)',
                         }}
                     >
-                        {mensaje.ok
-                            ? <CheckCircle size={15} />
-                            : <XCircle size={15} />}
+                        {mensaje.ok ? <CheckCircle size={15} /> : <XCircle size={15} />}
                         {mensaje.texto}
                     </div>
                 )}
 
-                {/* Quick stats bar */}
+                {/* Quick stats bar — datos reales de /parque/info + /reportes/resumen */}
                 <div
                     className="animate-fade-up-delay-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden"
                     style={{ background: 'var(--c-border)' }}
                 >
-                    {[
-                        { label: 'Visitantes hoy', value: DEMO_STATS.visitantes.toLocaleString('es-CO') },
-                        { label: 'Capacidad máx.',  value: DEMO_STATS.capacidadMax.toLocaleString('es-CO') },
-                        { label: 'Ingresos del día', value: formatCurrency(DEMO_STATS.ingresos) },
-                        { label: 'Atracciones activas', value: `${DEMO_STATS.atraccionesActivas}/${DEMO_STATS.totalAtracciones}` },
-                    ].map(({ label, value }) => (
+                    {quickStats.map(({ label, value }) => (
                         <div
                             key={label}
                             className="px-5 py-4"
@@ -207,22 +174,38 @@ function HeroSection({ onCargarDatos, loading, mensaje }) {
     )
 }
 
-
+// ─── Resumen en cards ─────────────────────────────────────────────────────────
+// Fuentes: /parque/info → visitantesActuales, capacidadMaxima, ingresosDiarios
+//          /reportes/resumen → alertasMantenimiento (u otras métricas)
+//          /atracciones → cuenta activas vs total
 function ResumenCards({ stats }) {
+    const {
+        visitantesActuales = 0,
+        capacidadMaxima    = 1,
+        ingresosDiarios    = 0,
+        atraccionesActivas = 0,
+        totalAtracciones   = 0,
+        alertas            = 0,
+    } = stats
+
+    const pctAforo = capacidadMaxima > 0
+        ? Math.round((visitantesActuales / capacidadMaxima) * 100)
+        : 0
+
     return (
         <section className="max-w-7xl mx-auto px-6 py-12">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     label="Visitantes hoy"
-                    value={stats.visitantes.toLocaleString('es-CO')}
-                    sub={`${Math.round((stats.visitantes / stats.capacidadMax) * 100)}% de aforo`}
+                    value={visitantesActuales.toLocaleString('es-CO')}
+                    sub={`${pctAforo}% de aforo`}
                     accent="#2a9d8f"
                     icon={Users}
                     className="animate-fade-up-delay-1"
                 />
                 <StatCard
                     label="Atracciones activas"
-                    value={`${stats.atraccionesActivas}/${stats.totalAtracciones}`}
+                    value={`${atraccionesActivas}/${totalAtracciones}`}
                     sub="En operación normal"
                     accent="#457b9d"
                     icon={Zap}
@@ -230,15 +213,15 @@ function ResumenCards({ stats }) {
                 />
                 <StatCard
                     label="Alertas activas"
-                    value={stats.alertas}
-                    sub={stats.alertas > 0 ? 'Requieren atención' : 'Todo en orden'}
-                    accent={stats.alertas > 0 ? '#e63946' : '#22c55e'}
+                    value={alertas}
+                    sub={alertas > 0 ? 'Requieren atención' : 'Todo en orden'}
+                    accent={alertas > 0 ? '#e63946' : '#22c55e'}
                     icon={AlertTriangle}
                     className="animate-fade-up-delay-3"
                 />
                 <StatCard
                     label="Ingresos del día"
-                    value={formatCurrency(stats.ingresos)}
+                    value={formatCurrency(ingresosDiarios)}
                     sub="Tickets + servicios"
                     accent="#e9c46a"
                     icon={DollarSign}
@@ -249,8 +232,12 @@ function ResumenCards({ stats }) {
     )
 }
 
-
-function ZonasSection({ zonas }) {
+// ─── Sección de Zonas ─────────────────────────────────────────────────────────
+// Fuente: /zonas  → { id, nombre, capacidadMaxima, visitantesActuales, cantidadAtracciones, estaLlena }
+//         /zonas/{id}/atracciones → { zona, atracciones: [{ id, nombre, estado, tipo, visitantes }] }
+// Nota: el backend no devuelve tiempoEsperaEstimado ni cola en este endpoint;
+//       esos datos vienen de /atracciones. Se muestran los datos disponibles.
+function ZonasSection({ zonas, atraccionesPorZona }) {
     return (
         <section id="zonas" className="max-w-7xl mx-auto px-6 pb-12">
             {/* Header */}
@@ -263,14 +250,19 @@ function ZonasSection({ zonas }) {
                     className="text-xs font-mono px-3 py-1.5 rounded-lg"
                     style={{ background: 'var(--c-card)', color: 'var(--c-muted)', border: '0.5px solid var(--c-border)' }}
                 >
-          {zonas.length} zonas
-        </span>
+                    {zonas.length} zonas
+                </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {zonas.map((zona) => {
-                    const { accent, glow } = ZONA_COLORS[zona.id] || { accent: '#6a4c93', glow: 'rgba(106,76,147,0.15)' }
-                    const pct = Math.round((zona.capacidadActual / zona.capacidadMax) * 100)
+                {zonas.map((zona, idx) => {
+                    const { accent, glow, icono } = getZonaPalette(idx)
+                    // visitantesActuales y capacidadMaxima son los campos reales del backend
+                    const actual = zona.visitantesActuales ?? 0
+                    const max    = zona.capacidadMaxima    ?? 1
+                    const pct    = max > 0 ? Math.round((actual / max) * 100) : 0
+                    // atracciones cargadas para esta zona desde /zonas/{id}/atracciones
+                    const atracciones = atraccionesPorZona[zona.id] ?? []
 
                     return (
                         <div
@@ -288,7 +280,7 @@ function ZonasSection({ zonas }) {
                                 {/* Zona header */}
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-2xl">{zona.icono}</span>
+                                        <span className="text-2xl">{icono}</span>
                                         <div>
                                             <h3
                                                 className="font-bold text-sm"
@@ -297,7 +289,8 @@ function ZonasSection({ zonas }) {
                                                 {zona.nombre}
                                             </h3>
                                             <p className="text-xs mt-0.5" style={{ color: 'var(--c-muted)' }}>
-                                                {zona.atracciones.length} atracciones
+                                                {/* cantidadAtracciones viene directo del backend */}
+                                                {zona.cantidadAtracciones ?? atracciones.length} atracciones
                                             </p>
                                         </div>
                                     </div>
@@ -305,57 +298,61 @@ function ZonasSection({ zonas }) {
                                         className="text-xs font-bold px-2.5 py-1 rounded-lg"
                                         style={{ background: `${accent}20`, color: accent, fontFamily: 'var(--font-mono)' }}
                                     >
-                    {pct}%
-                  </span>
+                                        {pct}%
+                                    </span>
                                 </div>
 
                                 {/* Capacity bar */}
                                 <div className="mb-1.5">
                                     <ProgressBar
-                                        value={zona.capacidadActual}
-                                        max={zona.capacidadMax}
+                                        value={actual}
+                                        max={max}
                                         color={accent}
                                     />
                                 </div>
                                 <div className="flex justify-between text-xs mb-5" style={{ color: 'var(--c-muted)' }}>
-                                    <span>{zona.capacidadActual.toLocaleString('es-CO')} visitantes</span>
-                                    <span>Máx. {zona.capacidadMax.toLocaleString('es-CO')}</span>
+                                    <span>{actual.toLocaleString('es-CO')} visitantes</span>
+                                    <span>Máx. {max.toLocaleString('es-CO')}</span>
                                 </div>
 
                                 {/* Atracciones list */}
-                                <div className="space-y-2">
-                                    {zona.atracciones.map((a) => (
-                                        <div
-                                            key={a.nombre}
-                                            className="flex items-center justify-between rounded-xl px-3 py-2.5"
-                                            style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid var(--c-border)' }}
-                                        >
-                                            <div className="flex items-center gap-2 min-w-0">
-                        <span
-                            className="status-dot flex-shrink-0"
-                            style={{
-                                background:
-                                    a.estado === 'ACTIVA' ? '#22c55e' :
-                                        a.estado === 'EN_MANTENIMIENTO' ? '#f4a261' : '#e63946',
-                            }}
-                        />
-                                                <span className="text-xs truncate" style={{ color: 'var(--c-dim)' }}>
-                          {a.nombre}
-                        </span>
+                                {atracciones.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {atracciones.map((a) => (
+                                            <div
+                                                key={a.id}
+                                                className="flex items-center justify-between rounded-xl px-3 py-2.5"
+                                                style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid var(--c-border)' }}
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span
+                                                        className="status-dot flex-shrink-0"
+                                                        style={{ background: estadoColor(a.estado) }}
+                                                    />
+                                                    <span className="text-xs truncate" style={{ color: 'var(--c-dim)' }}>
+                                                        {a.nombre}
+                                                    </span>
+                                                </div>
+                                                {/* visitantes en atracción — campo real: a.visitantes */}
+                                                {(a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA') ? (
+                                                    <span
+                                                        className="text-xs flex-shrink-0 flex items-center gap-1"
+                                                        style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}
+                                                    >
+                                                        <Users size={10} />
+                                                        {a.visitantes ?? 0}
+                                                    </span>
+                                                ) : (
+                                                    <StatusBadge status={a.estado} />
+                                                )}
                                             </div>
-                                            {a.estado === 'ACTIVA' && (
-                                                <span className="text-xs flex-shrink-0 flex items-center gap-1"
-                                                      style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>
-                          <Clock size={10} />
-                                                    {a.espera}min
-                        </span>
-                                            )}
-                                            {a.estado !== 'ACTIVA' && (
-                                                <StatusBadge status={a.estado} />
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-center py-3" style={{ color: 'var(--c-muted)' }}>
+                                        Sin atracciones cargadas
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )
@@ -365,12 +362,13 @@ function ZonasSection({ zonas }) {
     )
 }
 
-
-function AtraccionesDestacadas({ zonas }) {
-    // Flatten all atracciones from all zones
-    const todas = zonas.flatMap((z) =>
-        z.atracciones.map((a) => ({ ...a, zona: z.nombre, zonaColor: ZONA_COLORS[z.id]?.accent || '#6a4c93' }))
-    )
+// ─── Atracciones destacadas ───────────────────────────────────────────────────
+// Fuente: /atracciones → { id, nombre, tipo, estado, contadorVisitantes,
+//                          tiempoEsperaEstimado, alturaMinima, edadMinima, costoAdicional }
+// Se enriquece con zona asignada a partir de los datos de zonas
+function AtraccionesDestacadas({ atracciones, zonas }) {
+    // Construye un mapa id_atraccion → nombre de zona, usando atraccionesPorZona si se dispone
+    // Como aquí recibimos atracciones planas del endpoint /atracciones, mostramos lo disponible
 
     return (
         <section className="max-w-7xl mx-auto px-6 pb-16">
@@ -386,20 +384,34 @@ function AtraccionesDestacadas({ zonas }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {todas.map((a, i) => (
-                    <AtraccionCard key={`${a.nombre}-${i}`} atraccion={a} delay={i} />
-                ))}
-            </div>
+            {atracciones.length === 0 ? (
+                <div
+                    className="glass rounded-2xl p-12 text-center"
+                    style={{ border: '0.5px solid var(--c-border)' }}
+                >
+                    <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
+                        No hay atracciones cargadas. Usa "Cargar escenario de prueba" para inicializar el sistema.
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {atracciones.map((a, i) => (
+                        <AtraccionCard key={a.id} atraccion={a} delay={i} zonas={zonas} />
+                    ))}
+                </div>
+            )}
         </section>
     )
 }
 
-
-function AtraccionCard({ atraccion: a, delay }) {
-    const stateColor =
-        a.estado === 'ACTIVA' ? '#22c55e' :
-            a.estado === 'EN_MANTENIMIENTO' ? '#f4a261' : '#e63946'
+function AtraccionCard({ atraccion: a, delay, zonas }) {
+    // Asigna color de zona por índice si no hay info directa
+    const paletteIdx = zonas.findIndex(z =>
+        z.nombre?.toLowerCase().includes(a.tipo?.toLowerCase?.() ?? '')
+    )
+    const { accent: zonaColor } = getZonaPalette(paletteIdx >= 0 ? paletteIdx : delay % ZONA_PALETTE.length)
+    const stColor = estadoColor(a.estado)
+    const esActiva = a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA'
 
     return (
         <div
@@ -409,9 +421,9 @@ function AtraccionCard({ atraccion: a, delay }) {
             {/* Color block */}
             <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `${a.zonaColor}18`, border: `0.5px solid ${a.zonaColor}30` }}
+                style={{ background: `${zonaColor}18`, border: `0.5px solid ${zonaColor}30` }}
             >
-                <Activity size={20} style={{ color: a.zonaColor }} />
+                <Activity size={20} style={{ color: zonaColor }} />
             </div>
 
             {/* Info */}
@@ -422,43 +434,48 @@ function AtraccionCard({ atraccion: a, delay }) {
                 >
                     {a.nombre}
                 </h4>
+                {/* tipo es el campo real del backend */}
                 <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--c-muted)' }}>
-                    {a.zona}
+                    {a.tipo ?? '—'}
                 </p>
-                {a.estado === 'ACTIVA' && (
+                {esActiva && (
                     <div className="flex items-center gap-3 mt-2">
-            <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--c-dim)' }}>
-              <Users size={10} />
-                {a.cola} en cola
-            </span>
+                        {/* contadorVisitantes — campo real */}
                         <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--c-dim)' }}>
-              <Clock size={10} />
-              ~{a.espera} min
-            </span>
+                            <Users size={10} />
+                            {a.contadorVisitantes ?? 0} visitantes
+                        </span>
+                        {/* tiempoEsperaEstimado — campo real */}
+                        {(a.tiempoEsperaEstimado ?? 0) > 0 && (
+                            <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--c-dim)' }}>
+                                <Clock size={10} />
+                                ~{a.tiempoEsperaEstimado} min
+                            </span>
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* Status */}
+            {/* Status dot */}
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
-        <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: stateColor, boxShadow: `0 0 8px ${stateColor}` }}
-        />
-                {a.estado === 'ACTIVA' && a.espera > 0 && (
+                <span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ background: stColor, boxShadow: `0 0 8px ${stColor}` }}
+                />
+                {esActiva && (a.tiempoEsperaEstimado ?? 0) > 0 && (
                     <span
                         className="text-xs font-bold"
                         style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-dim)' }}
                     >
-            {a.espera}′
-          </span>
+                        {a.tiempoEsperaEstimado}′
+                    </span>
                 )}
             </div>
         </div>
     )
 }
 
-
+// ─── CTA Cargar datos ─────────────────────────────────────────────────────────
 function CargarDatosSection({ onCargarDatos, loading, mensaje }) {
     return (
         <section className="max-w-7xl mx-auto px-6 pb-20">
@@ -466,7 +483,6 @@ function CargarDatosSection({ onCargarDatos, loading, mensaje }) {
                 className="glass rounded-3xl p-8 md:p-12 relative overflow-hidden"
                 style={{ border: '0.5px solid rgba(255,255,255,0.06)' }}
             >
-                {/* Background rainbow glow */}
                 <div
                     className="absolute inset-0 opacity-5"
                     style={{ background: 'linear-gradient(135deg,#e63946,#f4a261,#2a9d8f,#6a4c93)' }}
@@ -493,8 +509,8 @@ function CargarDatosSection({ onCargarDatos, loading, mensaje }) {
                                 className="text-xs uppercase tracking-widest font-semibold"
                                 style={{ fontFamily: 'var(--font-display)', color: '#e9c46a' }}
                             >
-                Datos de prueba
-              </span>
+                                Datos de prueba
+                            </span>
                         </div>
                         <h3
                             className="text-2xl font-bold mb-2"
@@ -539,40 +555,80 @@ function CargarDatosSection({ onCargarDatos, loading, mensaje }) {
     )
 }
 
-
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Página principal ─────────────────────────────────────────────────────────
 export default function Inicio() {
-    const [stats, setStats]     = useState(DEMO_STATS)
-    const [zonas, setZonas]     = useState(DEMO_ZONAS)
-    const [loading, setLoading] = useState(false)
-    const [mensaje, setMensaje] = useState(null)
-    const [backendOk, setBackendOk] = useState(null)
+    // ── Estado real del parque (/parque/info)
+    const [parqueInfo, setParqueInfo]   = useState(null)
+    // ── Resumen rápido del reporte (/reportes/resumen)
+    const [resumen, setResumen]         = useState(null)
+    // ── Lista real de zonas (/zonas)
+    const [zonas, setZonas]             = useState([])
+    // ── Atracciones por zona: { [zonaId]: [...] }  (/zonas/{id}/atracciones)
+    const [atraccionesPorZona, setAtraccionesPorZona] = useState({})
+    // ── Lista plana de atracciones (/atracciones) para la sección destacadas
+    const [atracciones, setAtracciones] = useState([])
+    // ── UI
+    const [loading, setLoading]         = useState(false)
+    const [fetching, setFetching]       = useState(true)
+    const [mensaje, setMensaje]         = useState(null)
+    const [backendOk, setBackendOk]     = useState(null)
 
-    // Intenta cargar datos reales al montar
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const [resZonas] = await Promise.all([
-                    parqueService.getZonas(),
-                ])
-                if (resZonas?.data) setZonas(resZonas.data)
-                setBackendOk(true)
-            } catch {
-                setBackendOk(false)
+    // ── Carga todos los datos del backend ─────────────────────────────────────
+    const fetchTodo = useCallback(async () => {
+        setFetching(true)
+        try {
+            // 1. Datos del parque + resumen de reportes + atracciones (en paralelo)
+            const [resInfo, resResumen, resAtracciones, resZonas] = await Promise.allSettled([
+                parqueService.getInfo(),
+                reporteService.getResumen(),
+                atraccionService.getAll(),
+                zonaService.getAll(),
+            ])
+
+            if (resInfo.status === 'fulfilled')        setParqueInfo(resInfo.value.data)
+            if (resResumen.status === 'fulfilled')     setResumen(resResumen.value.data)
+            if (resAtracciones.status === 'fulfilled') setAtracciones(resAtracciones.value.data ?? [])
+
+            if (resZonas.status === 'fulfilled') {
+                const zonasData = resZonas.value.data ?? []
+                setZonas(zonasData)
+
+                // 2. Por cada zona, carga sus atracciones (/zonas/{id}/atracciones)
+                const fetchesAtracciones = await Promise.allSettled(
+                    zonasData.map(z => zonaService.getAtracciones(z.id))
+                )
+                const mapa = {}
+                fetchesAtracciones.forEach((res, idx) => {
+                    if (res.status === 'fulfilled') {
+                        // El backend devuelve: { zona: "Nombre", atracciones: [...] }
+                        mapa[zonasData[idx].id] = res.value.data?.atracciones ?? []
+                    }
+                })
+                setAtraccionesPorZona(mapa)
             }
+
+            setBackendOk(true)
+        } catch {
+            setBackendOk(false)
+        } finally {
+            setFetching(false)
         }
-        fetchData()
     }, [])
 
+    useEffect(() => {
+        fetchTodo()
+    }, [fetchTodo])
+
+    // ── Cargar escenario de prueba ────────────────────────────────────────────
+    // Usa cargarDatosPrueba() → POST /api/parque/cargar-datos-prueba
     async function handleCargarDatos() {
         setLoading(true)
         setMensaje(null)
         try {
-            await parqueService.cargarDatos()
+            await parqueService.cargarDatosPrueba()
             setMensaje({ ok: true, texto: 'Escenario cargado correctamente ✓' })
-            // Refrescar datos
-            const resZonas = await parqueService.getZonas()
-            if (resZonas?.data) setZonas(resZonas.data)
+            // Refresca todos los datos tras la carga
+            await fetchTodo()
         } catch {
             setMensaje({ ok: false, texto: 'Error: no se pudo conectar al backend' })
         } finally {
@@ -580,9 +636,64 @@ export default function Inicio() {
         }
     }
 
+    // ── Derivar stats para ResumenCards ──────────────────────────────────────
+    // Combina /parque/info + /atracciones + /reportes/resumen
+    const stats = {
+        // /parque/info
+        visitantesActuales: parqueInfo?.visitantesActuales ?? 0,
+        capacidadMaxima:    parqueInfo?.capacidadMaxima    ?? 1,
+        ingresosDiarios:    parqueInfo?.ingresosDiarios    ?? 0,
+        // conteo de atracciones activas desde /atracciones
+        atraccionesActivas: atracciones.filter(
+            a => a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA'
+        ).length,
+        totalAtracciones: atracciones.length,
+        // alertas pendientes desde /reportes/resumen (si el backend lo expone)
+        // o se puede complementar con /alertas/mantenimiento/pendientes
+        alertas: resumen?.alertasMantenimiento ?? resumen?.alertasPendientes ?? 0,
+    }
+
+    // ── Quick stats para la barra del Hero ───────────────────────────────────
+    const quickStats = [
+        {
+            label: 'Visitantes hoy',
+            value: stats.visitantesActuales.toLocaleString('es-CO'),
+        },
+        {
+            label: 'Capacidad máx.',
+            value: stats.capacidadMaxima.toLocaleString('es-CO'),
+        },
+        {
+            label: 'Ingresos del día',
+            value: formatCurrency(stats.ingresosDiarios),
+        },
+        {
+            label: 'Atracciones activas',
+            value: stats.totalAtracciones > 0
+                ? `${stats.atraccionesActivas}/${stats.totalAtracciones}`
+                : '—',
+        },
+    ]
+
     return (
         <div style={{ background: 'var(--c-night)' }}>
-            {/* Backend warning banner */}
+            {/* Spinner de carga inicial */}
+            {fetching && (
+                <div
+                    className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+                    style={{
+                        background: 'rgba(13,15,20,0.85)',
+                        border: '0.5px solid var(--c-border)',
+                        color: 'var(--c-muted)',
+                        backdropFilter: 'blur(12px)',
+                    }}
+                >
+                    <Loader2 size={12} className="animate-spin" />
+                    Sincronizando con el backend…
+                </div>
+            )}
+
+            {/* Backend no disponible */}
             {backendOk === false && (
                 <div
                     className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl text-sm"
@@ -596,8 +707,7 @@ export default function Inicio() {
                     }}
                 >
                     <AlertTriangle size={14} />
-                    Backend no detectado — mostrando datos de demostración.
-                    Corre el servidor en{' '}
+                    Backend no detectado — corre el servidor en{' '}
                     <code
                         className="font-mono text-xs px-2 py-0.5 rounded"
                         style={{ background: 'rgba(233,196,106,0.15)' }}
@@ -612,6 +722,8 @@ export default function Inicio() {
                 onCargarDatos={handleCargarDatos}
                 loading={loading}
                 mensaje={mensaje}
+                parqueAbierto={parqueInfo?.estaAbierto ?? true}
+                quickStats={quickStats}
             />
 
             {/* 2. Resumen en cards */}
@@ -623,10 +735,16 @@ export default function Inicio() {
             </div>
 
             {/* 3. Zonas */}
-            <ZonasSection zonas={zonas} />
+            <ZonasSection
+                zonas={zonas}
+                atraccionesPorZona={atraccionesPorZona}
+            />
 
             {/* 4. Atracciones destacadas */}
-            <AtraccionesDestacadas zonas={zonas} />
+            <AtraccionesDestacadas
+                atracciones={atracciones}
+                zonas={zonas}
+            />
 
             {/* 5. CTA Cargar datos */}
             <CargarDatosSection
