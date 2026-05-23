@@ -10,7 +10,8 @@ import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Select } from '@/components/ui/Input'
-import { parqueService, atraccionService } from '@/services/parqueService'
+import { parqueService } from '@/services/parqueService'
+import { useApp } from '@/context/AppContext'
 
 // ─── Constantes visuales ──────────────────────────────────────────────────────
 const ZONA_COLORS = {
@@ -186,14 +187,17 @@ function GrafoSVG({ nodos, aristas, nodoSeleccionado, onSelect, rutaResaltada, f
     // Si el backend manda coordenadas reales, aplicamos la misma lógica de escala anterior.
     const SCALE = 0.72
     const CX = W / 2, CY = H / 2
+    const PAD = 60
 
     function toSvgX(nodo) {
         if (nodo._layout) return nodo.x
-        return CX + (nodo.x ?? 0) * SCALE
+        // x viene como porcentaje 0-100 → convertir a píxeles con padding
+        return PAD + ((nodo.x ?? 50) / 100) * (W - PAD * 2)
     }
     function toSvgY(nodo) {
         if (nodo._layout) return nodo.y
-        return CY + (nodo.y ?? 0) * SCALE
+        // y viene como porcentaje 0-100 → convertir a píxeles con padding
+        return PAD + ((nodo.y ?? 50) / 100) * (H - PAD * 2)
     }
 
     // Mapa id → nodo con posición calculada
@@ -356,12 +360,12 @@ function GrafoSVG({ nodos, aristas, nodoSeleccionado, onSelect, rutaResaltada, f
                                 {line}
                             </text>
                         ))}
-                        {(nodo.contadorVisitantes > 0) && (
+                        {((nodo.visitantesEnCola ?? nodo.contadorVisitantes ?? 0) > 0) && (
                             <g transform={`translate(${-(r - 2)}, ${-(r - 2)})`}>
                                 <circle r={8} fill="#e63946" stroke="rgba(13,15,20,0.9)" strokeWidth={1} />
                                 <text textAnchor="middle" y={3} fontSize={7}
                                       fill="white" fontWeight={700} fontFamily="Syne, sans-serif">
-                                    {nodo.contadorVisitantes}
+                                    {nodo.visitantesEnCola ?? nodo.contadorVisitantes ?? 0}
                                 </text>
                             </g>
                         )}
@@ -374,7 +378,8 @@ function GrafoSVG({ nodos, aristas, nodoSeleccionado, onSelect, rutaResaltada, f
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 function HeroMapa({ nodos, aristas, cargando }) {
-    const totalVisitantes = nodos.reduce((s, n) => s + (n.contadorVisitantes || 0), 0)
+    const { parqueInfo } = useApp()
+    const totalEnColas = nodos.reduce((s, n) => s + (n.visitantesEnCola ?? n.contadorVisitantes ?? 0), 0)
     const activas = nodos.filter(n => n.estado === 'ACTIVA' && !n.esEntrada).length
 
     return (
@@ -414,7 +419,8 @@ function HeroMapa({ nodos, aristas, cargando }) {
                 </div>
                 <div className="flex flex-wrap gap-3">
                     {[
-                        { label: 'En colas', value: cargando ? '…' : totalVisitantes, color: '#e63946', icon: Users    },
+                        { label: 'Visitantes únicos', value: cargando ? '…' : (parqueInfo?.visitantesActuales ?? 0), color: '#2a9d8f', icon: Users  },
+                        { label: 'En colas ahora',    value: cargando ? '…' : totalEnColas,                          color: '#e63946', icon: Users  },
                         { label: 'Activas',  value: cargando ? '…' : activas,         color: '#22c55e', icon: Activity },
                         { label: 'Senderos', value: cargando ? '…' : aristas.length,  color: '#2a9d8f', icon: Map      },
                     ].map(({ label, value, color, icon: Ico }) => (
@@ -454,7 +460,7 @@ function PanelNodo({ nodo, aristas, nodos, onClearSelect, onAddRuta }) {
     }
 
     const zona    = ZONA_COLORS[nodo.zona] || ZONA_COLORS.default
-    const cola    = nodo.contadorVisitantes || 0
+    const cola    = nodo.visitantesEnCola ?? nodo.contadorVisitantes ?? 0
     const espera  = nodo.tiempoEsperaEstimado || 0
     const pctCola = espera > 0 ? Math.min(100, Math.round((cola / 40) * 100)) : 0
 
@@ -783,7 +789,7 @@ function PanelRecomendaciones({ nodos, onSelectNodo }) {
         .slice(0, 3)
         .map(n => {
             const espera = n.tiempoEsperaEstimado || 0
-            const cola   = n.contadorVisitantes  || 0
+            const cola   = n.visitantesEnCola ?? n.contadorVisitantes ?? 0
             const score  = Math.max(10, 100 - espera * 2 - cola)
             const zona   = n.zona || 'default'
             const color  = (ZONA_COLORS[zona] || ZONA_COLORS.default).bg
@@ -843,8 +849,10 @@ function PanelRecomendaciones({ nodos, onSelectNodo }) {
     )
 }
 
-// ─── Hook: carga y cruza datos ────────────────────────────────────────────────
+// ─── Hook: carga mapa y cruza con atracciones del contexto global ─────────────
 function useMapaData() {
+    const { atracciones: atraccionesCtx } = useApp()
+
     const [nodos,    setNodos]    = useState([])
     const [aristas,  setAristas]  = useState([])
     const [cargando, setCargando] = useState(true)
@@ -854,14 +862,11 @@ function useMapaData() {
         setCargando(true)
         setError(null)
         try {
-            const [mapaRes, atraccionesRes] = await Promise.all([
-                parqueService.getMapa(),
-                atraccionService.getAll(),
-            ])
+            const mapaRes  = await parqueService.getMapa()
+            const mapaData = mapaRes.data
 
-            const mapaData       = mapaRes.data
             const atraccionesMap = {}
-            ;(atraccionesRes.data || []).forEach(a => { atraccionesMap[a.id] = a })
+            ;(atraccionesCtx || []).forEach(a => { atraccionesMap[a.id] = a })
 
             const nodosEnriquecidos = (mapaData.nodos || []).map(nodo => {
                 const atraccion = atraccionesMap[nodo.id] || {}
@@ -873,15 +878,15 @@ function useMapaData() {
                     : iconoPorTipo(atraccion.tipo || nodo.tipo)
 
                 return {
-                    id:   nodo.id,
-                    x:    nodo.x    ?? nodo.posX ?? 0,
-                    y:    nodo.y    ?? nodo.posY ?? 0,
+                    id:     nodo.id,
+                    x:      nodo.x    ?? nodo.posX ?? 0,
+                    y:      nodo.y    ?? nodo.posY ?? 0,
                     nombre: nodo.nombre || atraccion.nombre || nodo.id,
                     zona,
                     icono,
                     esEntrada,
                     estado:               atraccion.estado               ?? nodo.estado               ?? 'ACTIVA',
-                    contadorVisitantes:   atraccion.contadorVisitantes   ?? nodo.visitantes            ?? 0,
+                    contadorVisitantes:   atraccion.visitantesEnCola ?? atraccion.contadorVisitantes   ?? nodo.visitantes ?? 0,
                     tiempoEsperaEstimado: atraccion.tiempoEsperaEstimado ?? nodo.tiempoEsperaEstimado  ?? 0,
                     alturaMinima:         atraccion.alturaMinima         ?? nodo.alturaMinima          ?? 0,
                     costoAdicional:       atraccion.costoAdicional       ?? nodo.costoAdicional        ?? 0,
@@ -897,7 +902,26 @@ function useMapaData() {
         } finally {
             setCargando(false)
         }
-    }, [])
+    }, [atraccionesCtx])
+
+    // Re-enriquecer nodos cuando el contexto actualiza atracciones sin re-fetch del mapa
+    useEffect(() => {
+        if (nodos.length === 0) return
+        const atraccionesMap = {}
+        ;(atraccionesCtx || []).forEach(a => { atraccionesMap[a.id] = a })
+        setNodos(prev => prev.map(nodo => {
+            const a = atraccionesMap[nodo.id]
+            if (!a) return nodo
+            return {
+                ...nodo,
+                estado:               a.estado               ?? nodo.estado,
+                contadorVisitantes:   a.visitantesEnCola ?? a.contadorVisitantes ?? nodo.contadorVisitantes,
+                tiempoEsperaEstimado: a.tiempoEsperaEstimado ?? nodo.tiempoEsperaEstimado,
+                costoAdicional:       a.costoAdicional       ?? nodo.costoAdicional,
+            }
+        }))
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [atraccionesCtx])
 
     useEffect(() => { cargar() }, [cargar])
 
@@ -907,6 +931,7 @@ function useMapaData() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Mapa() {
     const { nodos, aristas, cargando, error, recargar } = useMapaData()
+    const { parqueInfo } = useApp()
 
     const [nodoSel,    setNodoSel]    = useState(null)
     const [rutaNodos,  setRutaNodos]  = useState([])
@@ -926,7 +951,7 @@ export default function Mapa() {
     const statsActivas         = nodos.filter(n => n.estado === 'ACTIVA' && !n.esEntrada).length
     const statsMantenimiento   = nodos.filter(n => n.estado === 'EN_MANTENIMIENTO').length
     const statsCerradas        = nodos.filter(n => n.estado === 'CERRADA').length
-    const statsTotalVisitantes = nodos.reduce((s, n) => s + (n.contadorVisitantes || 0), 0)
+    const statsTotalVisitantes = parqueInfo?.visitantesActuales ?? 0
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8" style={{ background: 'var(--c-night)' }}>
@@ -1065,7 +1090,7 @@ export default function Mapa() {
                             { label: 'Activas',          value: cargando ? '…' : statsActivas,         color: '#22c55e', icon: CheckCircle  },
                             { label: 'Mantenimiento',    value: cargando ? '…' : statsMantenimiento,   color: '#f4a261', icon: AlertTriangle },
                             { label: 'Cerradas',         value: cargando ? '…' : statsCerradas,        color: '#e63946', icon: Activity     },
-                            { label: 'Visitantes total', value: cargando ? '…' : statsTotalVisitantes, color: '#2a9d8f', icon: Users        },
+                            { label: 'Visitantes únicos', value: cargando ? '…' : statsTotalVisitantes, color: '#2a9d8f', icon: Users },
                         ].map(({ label, value, color, icon: Ico }) => (
                             <div key={label} className="glass rounded-xl px-4 py-3 flex items-center gap-3">
                                 <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"

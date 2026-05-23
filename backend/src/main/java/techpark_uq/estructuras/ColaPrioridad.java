@@ -113,4 +113,34 @@ public class ColaPrioridad<T> {
         return sb.toString();
     }
 
+    // Verifica si un elemento está en la cola
+    public boolean contiene(T dato) {
+        Nodo<T> actual = cabeza;
+        while (actual != null) {
+            if (actual.elemento.dato.equals(dato)) return true;
+            actual = actual.siguiente;
+        }
+        return false;
+    }
+
+    // Elimina un elemento específico de la cola
+    public boolean remover(T dato) {
+        if (cabeza == null) return false;
+        if (cabeza.elemento.dato.equals(dato)) {
+            cabeza = cabeza.siguiente;
+            tamano--;
+            return true;
+        }
+        Nodo<T> actual = cabeza;
+        while (actual.siguiente != null) {
+            if (actual.siguiente.elemento.dato.equals(dato)) {
+                actual.siguiente = actual.siguiente.siguiente;
+                tamano--;
+                return true;
+            }
+            actual = actual.siguiente;
+        }
+        return false;
+    }
+
 }

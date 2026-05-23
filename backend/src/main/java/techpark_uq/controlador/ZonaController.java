@@ -65,7 +65,7 @@ public class ZonaController {
                         "nombre", a.getNombre(),
                         "estado", a.getEstado(),
                         "tipo", a.getTipo(),
-                        "visitantes", a.getContadorVisitantes()
+                        "visitantes", a.getColaVirtual().tamano()
                 ))
                 .collect(Collectors.toList());
 

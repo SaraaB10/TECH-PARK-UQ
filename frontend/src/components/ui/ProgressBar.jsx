@@ -1,5 +1,6 @@
 export default function ProgressBar({ value = 0, max = 100, showLabel = false, color }) {
-    const pct = Math.min(100, Math.round((value / max) * 100))
+    const pctExact = Math.min(100, (value / max) * 100)
+    const pct      = Math.round(pctExact)
 
     return (
         <div className="flex items-center gap-3">
@@ -7,8 +8,9 @@ export default function ProgressBar({ value = 0, max = 100, showLabel = false, c
                 <div
                     className="progress-bar-fill"
                     style={{
-                        width: `${pct}%`,
+                        width: `${pctExact}%`,
                         background: color || undefined,
+                        minWidth: pctExact > 0 ? '3px' : '0px',
                     }}
                 />
             </div>
@@ -17,8 +19,8 @@ export default function ProgressBar({ value = 0, max = 100, showLabel = false, c
                     className="text-xs font-mono w-9 text-right flex-shrink-0"
                     style={{ color: 'var(--c-muted)' }}
                 >
-          {pct}%
-        </span>
+                {pct}%
+            </span>
             )}
         </div>
     )

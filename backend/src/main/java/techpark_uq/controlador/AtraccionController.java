@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import techpark_uq.servicio.ServicioParque;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,21 +23,29 @@ public class AtraccionController {
     }
 
     // GET: lista todas las atracciones con sus datos principales
+    // Cambios respecto al original:
+    // + visitantesEnCola  → tamaño real de la ColaVirtual (lo que la UI necesita para mostrar ocupación)
+    // + zona              → nombre de la zona (para agrupación en frontend)
+    // - costoAdicional    → eliminado de la respuesta (la cola no cobra extra al visitante)
     @GetMapping
     public ResponseEntity<?> listarTodas() {
         List<Map<String, Object>> resultado = servicioParque
                 .obtenerTodasLasAtracciones().stream()
-                .map(a -> Map.<String, Object>of(
-                        "id", a.getId(),
-                        "nombre", a.getNombre(),
-                        "tipo", a.getTipo(),
-                        "estado", a.getEstado(),
-                        "contadorVisitantes", a.getContadorVisitantes(),
-                        "tiempoEsperaEstimado", a.getTiempoEsperaEstimado(),
-                        "alturaMinima", a.getAlturaMinima(),
-                        "edadMinima", a.getEdadMinima(),
-                        "costoAdicional", a.getCostoAdicional()
-                ))
+                .map(a -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",                   a.getId());
+                    m.put("nombre",               a.getNombre());
+                    m.put("tipo",                 a.getTipo());
+                    m.put("estado",               a.getEstado());
+                    m.put("contadorVisitantes",   a.getContadorVisitantes());
+                    m.put("visitantesEnCola",     a.getColaVirtual().tamano());
+                    m.put("tiempoEsperaEstimado", a.getTiempoEsperaEstimado());
+                    m.put("alturaMinima",         a.getAlturaMinima());
+                    m.put("edadMinima",           a.getEdadMinima());
+                    m.put("zona",                 a.getZona() != null ? a.getZona().getNombre() : "");
+                    m.put("zonaId",               a.getZona() != null ? a.getZona().getId()     : "");
+                    return m;
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(resultado);
     }
@@ -67,7 +76,7 @@ public class AtraccionController {
         ));
     }
 
-    // PUT: cambia el estado de una atracción (abierta, cerrada, mantenimiento, etc.)
+    // PUT: cambia el estado de una atracción
     @PutMapping("/{id}/estado")
     public ResponseEntity<String> cambiarEstado(
             @PathVariable String id,
@@ -88,13 +97,12 @@ public class AtraccionController {
     public ResponseEntity<?> verCola(@PathVariable String id) {
         Atraccion atraccion = servicioParque.buscarAtraccion(id);
 
-        // Si la atracción no existe
         if (atraccion == null) return ResponseEntity.notFound().build();
 
-        // Retorna información de la cola
         return ResponseEntity.ok(Map.of(
-                "atraccion", atraccion.getNombre(),
-                "visitantesEnCola", atraccion.getColaVirtual().tamano()
+                "atraccion",       atraccion.getNombre(),
+                "visitantesEnCola", atraccion.getColaVirtual().tamano(),
+                "tiempoEsperaEstimado", atraccion.getTiempoEsperaEstimado()
         ));
     }
 }

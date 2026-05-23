@@ -64,7 +64,8 @@ public class VisitanteController {
         return ResponseEntity.ok(Map.of(
                 "visitante", visitante.getNombre(),
                 "historial", Arrays.stream(historial)
-                        .map(Object::toString)
+                        .filter(o -> o instanceof Atraccion)
+                        .map(o -> ((Atraccion) o).getNombre())
                         .collect(Collectors.toList())
         ));
     }
