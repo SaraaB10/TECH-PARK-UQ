@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import {
     AreaChart, Area, BarChart, Bar, LineChart, Line,
     RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -15,13 +15,7 @@ import { StatCard } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
-import {
-    estadisticasService,
-    zonaService,
-    atraccionService,
-    alertaService,
-    reporteService,
-} from '@/services/parqueService'
+import { useApp } from '@/context/AppContext'
 
 // ─── Paleta rainbow para recharts ─────────────────────────────────────────────
 const RC = {
@@ -81,49 +75,32 @@ function Skeleton({ className = '', style = {} }) {
 
 // ─── Custom hook: carga todos los datos del dashboard ─────────────────────────
 function useEstadisticas() {
-    const [data, setData]       = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError]     = useState(null)
+    const {
+        resumen,
+        jornada,
+        atracciones,
+        zonas,
+        alertasMantenimiento: mantenimiento,
+        alertasClimaticas:    climaticas,
+        cargandoGlobal:       loading,
+        refrescarReportes,
+        refrescarAlertas,
+        refrescarAtracciones,
+    } = useApp()
 
-    const cargar = useCallback(async () => {
-        setLoading(true)
-        setError(null)
-        try {
-            // Llamadas en paralelo a todos los endpoints necesarios
-            const [
-                resumenRes,
-                jornadaRes,
-                atraccionesRes,
-                zonasRes,
-                mantenimientoRes,
-                climaticasRes,
-            ] = await Promise.all([
-                reporteService.getResumen(),
-                reporteService.getJornada(),
-                atraccionService.getAll(),
-                zonaService.getAll(),
-                alertaService.getMantenimiento(),
-                alertaService.getClimaticas(),
-            ])
+    const [error] = useState(null)
 
-            const resumen       = resumenRes.data
-            const jornada       = jornadaRes.data
-            const atracciones   = atraccionesRes.data       // [{id, nombre, tipo, estado, contadorVisitantes, tiempoEsperaEstimado, alturaMinima, edadMinima, costoAdicional}]
-            const zonas         = zonasRes.data             // [{id, nombre, capacidadMaxima, visitantesActuales, cantidadAtracciones, estaLlena}]
-            const mantenimiento = mantenimientoRes.data     // [{id, atraccion, resuelta, ...}]
-            const climaticas    = climaticasRes.data        // [{id, tipo, activa, atraccionesAfectadas, ...}]
+    const recargar = async () => {
+        await Promise.allSettled([
+            refrescarReportes(),
+            refrescarAlertas(),
+            refrescarAtracciones(),
+        ])
+    }
 
-            setData({ resumen, jornada, atracciones, zonas, mantenimiento, climaticas })
-        } catch (e) {
-            setError(e?.message ?? 'Error al cargar estadísticas')
-        } finally {
-            setLoading(false)
-        }
-    }, [])
+    const data = { resumen, jornada, atracciones, zonas, mantenimiento, climaticas }
 
-    useEffect(() => { cargar() }, [cargar])
-
-    return { data, loading, error, recargar: cargar }
+    return { data, loading, error, recargar }
 }
 
 // ─── Hero analítico ───────────────────────────────────────────────────────────
@@ -131,8 +108,7 @@ function HeroEstadisticas({ resumen, jornada, loading }) {
     // Campos reales de GET /reportes/resumen y GET /reportes/jornada
     const ingresos        = resumen?.ingresosDiarios ?? jornada?.ingresosDiarios ?? 0
     const visitantesHoy   = resumen?.visitantesActuales ?? resumen?.totalVisitantes ?? 0
-    const ticketsVendidos = resumen?.ticketsVendidos ?? resumen?.totalTickets ?? 0
-
+    const ticketsVendidos = resumen?.visitantesActuales ?? jornada?.totalVisitantes ?? 0
     // Delta: si el resumen trae comparativa, úsala; si no, no mostramos delta
     const deltaIngresos   = resumen?.variacionIngresos   ?? null
     const deltaVisitantes = resumen?.variacionVisitantes ?? null
@@ -227,7 +203,7 @@ function KPIsRapidos({ resumen, jornada, atracciones, loading }) {
     const ingresos = resumen?.ingresosDiarios ?? jornada?.ingresosDiarios ?? 0
 
     // Promedio de tiempos de espera de atracciones abiertas
-    const abiertasConEspera = (atracciones ?? []).filter(a => a.estado === 'ABIERTA' && a.tiempoEsperaEstimado > 0)
+    const abiertasConEspera = (atracciones ?? []).filter(a => (a.estado === 'ACTIVA' || a.estado === 'ABIERTA') && a.tiempoEsperaEstimado > 0)
     const promedioEspera = abiertasConEspera.length > 0
         ? Math.round(abiertasConEspera.reduce((s, a) => s + a.tiempoEsperaEstimado, 0) / abiertasConEspera.length)
         : 0
@@ -236,7 +212,7 @@ function KPIsRapidos({ resumen, jornada, atracciones, loading }) {
     const totalMantenimiento = jornada?.alertasMantenimiento ?? 0
 
     // Tickets vendidos
-    const tickets = resumen?.ticketsVendidos ?? resumen?.totalTickets ?? 0
+    const tickets = resumen?.visitantesActuales ?? jornada?.totalVisitantes ?? 0
 
     if (loading) {
         return (
@@ -343,11 +319,11 @@ function GraficoIngresos({ zonas, resumen, jornada, loading }) {
 function GraficoAtracciones({ atracciones, loading }) {
     // Ordenar por visitas descendente y tomar top 6
     const top6 = [...(atracciones ?? [])]
-        .sort((a, b) => (b.contadorVisitantes ?? 0) - (a.contadorVisitantes ?? 0))
+        .sort((a, b) => (b.visitantesEnCola ?? b.contadorVisitantes ?? 0) - (a.visitantesEnCola ?? a.contadorVisitantes ?? 0))
         .slice(0, 6)
         .map((a, i) => ({
             nombre:  a.nombre,
-            visitas: a.contadorVisitantes ?? 0,
+            visitas: a.visitantesEnCola ?? a.contadorVisitantes ?? 0,
             espera:  a.tiempoEsperaEstimado ?? 0,
             color:   RAINBOW_COLORS[i % RAINBOW_COLORS.length],
         }))
@@ -394,8 +370,7 @@ function GraficoAtracciones({ atracciones, loading }) {
 function GraficoTiemposEspera({ atracciones, loading }) {
     // Top 8 atracciones abiertas con mayor tiempo de espera
     const conEspera = [...(atracciones ?? [])]
-        .filter(a => a.estado === 'ABIERTA')
-        .sort((a, b) => (b.tiempoEsperaEstimado ?? 0) - (a.tiempoEsperaEstimado ?? 0))
+        .filter(a => a.estado === 'ACTIVA' || a.estado === 'ABIERTA')        .sort((a, b) => (b.tiempoEsperaEstimado ?? 0) - (a.tiempoEsperaEstimado ?? 0))
         .slice(0, 8)
         .map((a, i) => ({
             nombre:  a.nombre.length > 16 ? a.nombre.slice(0, 14) + '…' : a.nombre,
@@ -733,8 +708,7 @@ function AlertasEstadisticas({ atracciones, zonas, mantenimiento, climaticas, lo
 
     // 2. Atracciones con espera superior al umbral (20 min)
     ;(atracciones ?? [])
-        .filter(a => a.tiempoEsperaEstimado > 20 && a.estado === 'ABIERTA')
-        .slice(0, 2)
+        .filter(a => a.tiempoEsperaEstimado > 20 && (a.estado === 'ACTIVA' || a.estado === 'ABIERTA'))        .slice(0, 2)
         .forEach(a => {
             alertas.push({
                 icono: Flame,
@@ -834,7 +808,10 @@ function RendimientoZonas({ zonas, loading }) {
 
     const data = (zonas ?? []).map((z, i) => {
         const ocupacion = z.capacidadMaxima > 0
-            ? Math.round(((z.visitantesActuales ?? 0) / z.capacidadMaxima) * 100)
+            ? Math.round(((z.visitantesActuales ?? 0) / z.capacidadMaxima) * 1000) / 10
+            : 0
+        const ocupacionRaw = z.capacidadMaxima > 0
+            ? ((z.visitantesActuales ?? 0) / z.capacidadMaxima) * 100
             : 0
         // "eficiencia" operacional: % de atracciones disponibles × ocupación
         // Sin más datos reales, usamos ocupación como métrica directa
@@ -844,6 +821,7 @@ function RendimientoZonas({ zonas, loading }) {
             capacidad:   z.capacidadMaxima ?? 0,
             atracciones: z.cantidadAtracciones ?? 0,
             ocupacion,
+            ocupacionRaw,
             llena:       z.estaLlena ?? false,
             color:       zonaColors[i % zonaColors.length],
             icono:       ICONOS_ZONA[i % ICONOS_ZONA.length],
@@ -885,7 +863,7 @@ function RendimientoZonas({ zonas, loading }) {
                                     <span style={{ color: 'var(--c-muted)' }}>Ocupación</span>
                                     <span className="font-mono" style={{ fontFamily: 'var(--font-mono)', color: z.color }}>{z.ocupacion}%</span>
                                 </div>
-                                <ProgressBar value={z.ocupacion} max={100} color={z.color} />
+                                <ProgressBar value={z.ocupacionRaw} max={100} color={z.color} />
                             </div>
                             <div>
                                 <div className="flex justify-between text-xs mb-1">

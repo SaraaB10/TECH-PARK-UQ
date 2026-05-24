@@ -37,12 +37,19 @@ public class GrafoParque {
     // Obtener los nodos para el mapa
     public List<Map<String, Object>> getNodosParaMapa() {
         List<Map<String, Object>> resultado = new ArrayList<>();
-        for (Atraccion a : nodos.values()) {
+        List<Atraccion> lista = new ArrayList<>(nodos.values());
+        int total = lista.size();
+        for (int i = 0; i < total; i++) {
+            Atraccion a = lista.get(i);
             Map<String, Object> nodo = new HashMap<>();
-            nodo.put("id", a.getId());
+            nodo.put("id",     a.getId());
             nodo.put("nombre", a.getNombre());
             nodo.put("estado", a.getEstado().toString());
-            nodo.put("tipo", a.getTipo().toString());
+            nodo.put("tipo",   a.getTipo().toString());
+            // Distribuir en círculo: x e y como porcentaje (10–90)
+            double angulo = (2 * Math.PI * i) / Math.max(total, 1);
+            nodo.put("x", Math.round(50 + 35 * Math.cos(angulo)));
+            nodo.put("y", Math.round(50 + 35 * Math.sin(angulo)));
             resultado.add(nodo);
         }
         return resultado;

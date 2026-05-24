@@ -11,7 +11,8 @@ import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Select } from '@/components/ui/Input'
-import { rutaService, atraccionService, zonaService } from '@/services/parqueService'
+import { rutaService, parqueService } from '@/services/parqueService'
+import { useApp } from '@/context/AppContext'
 
 // ─── Colores por zona (asignados por índice, sin datos quemados) ──────────────
 const ZONA_COLORES = ['#f4a261', '#457b9d', '#6a4c93', '#2a9d8f', '#e9c46a', '#e63946']
@@ -73,10 +74,10 @@ function GrafoMiniMapa({ nodos = [], aristas = [], rutaResaltada = [] }) {
 
             {/* Aristas */}
             {aristas.map((arista, i) => {
-                const a = getNodo(arista.origen)
-                const b = getNodo(arista.destino)
+                const a = getNodo(arista.from ?? arista.origen)
+                const b = getNodo(arista.to   ?? arista.destino)
                 if (!a || !b) return null
-                const enRutaArista = enRuta.has(arista.origen) && enRuta.has(arista.destino)
+                const enRutaArista = enRuta.has(arista.from ?? arista.origen) && enRuta.has(arista.to ?? arista.destino)
                 const mx = (px(a.x) + px(b.x)) / 2
                 const my = (py(a.y) + py(b.y)) / 2
                 return (
@@ -130,10 +131,10 @@ function GrafoMiniMapa({ nodos = [], aristas = [], rutaResaltada = [] }) {
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 function HeroRutas({ zonas, nodosMapa, aristasMapa }) {
-    // zonas viene de GET /api/zonas → { id, nombre, capacidadMaxima, visitantesActuales, ... }
-    const totalVisitantes = zonas.reduce((s, z) => s + (z.visitantesActuales || 0), 0)
-    const maxCap          = zonas.reduce((s, z) => s + (z.capacidadMaxima  || 0), 0)
-    const flujoPct        = maxCap > 0 ? Math.round((totalVisitantes / maxCap) * 100) : 0
+    const { parqueInfo } = useApp()
+    const totalVisitantes = parqueInfo?.visitantesActuales ?? 0
+    const maxCap          = parqueInfo?.capacidadMaxima ?? zonas.reduce((s, z) => s + (z.capacidadMaxima || 0), 0)
+    const flujoPct = maxCap > 0 ? Math.round((totalVisitantes / maxCap) * 1000) / 10 : 0
 
     return (
         <div
@@ -451,7 +452,12 @@ function FlujoVisitantes({ zonas }) {
                     <p className="text-xs text-center py-4" style={{ color: 'var(--c-muted)' }}>Cargando zonas…</p>
                 )}
                 {zonas.map((z, idx) => {
-                    const pct      = z.capacidadMaxima > 0 ? Math.round((z.visitantesActuales / z.capacidadMaxima) * 100) : 0
+                    const pct = z.capacidadMaxima > 0
+                        ? Math.round((z.visitantesActuales / z.capacidadMaxima) * 1000) / 10
+                        : 0
+                    const pctRaw = z.capacidadMaxima > 0
+                        ? (z.visitantesActuales / z.capacidadMaxima) * 100
+                        : 0
                     const saturada = pct >= 75
                     const moderada = pct >= 50
                     const color    = getZonaColor(idx)
@@ -498,7 +504,7 @@ function FlujoVisitantes({ zonas }) {
                                 <div
                                     className="absolute left-0 top-0 h-full rounded-lg transition-all duration-700"
                                     style={{
-                                        width: `${Math.min(pct, 100)}%`,
+                                        width: `${Math.min(pctRaw, 100)}%`,
                                         background: saturada
                                             ? 'linear-gradient(90deg, #f4a261, #e63946)'
                                             : moderada
@@ -578,7 +584,7 @@ function GestionColas({ atracciones, onRefresh }) {
                         </tr>
                     )}
                     {atracciones.map((a) => {
-                        const total  = a.contadorVisitantes || 0
+                        const total  = a.visitantesEnCola ?? a.contadorVisitantes ?? 0
                         const activa = a.estado === 'ABIERTA' || a.estado === 'ACTIVA'
 
                         return (
@@ -749,8 +755,10 @@ function RecomendacionesInteligentes({ atracciones, aristasMapa }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Rutas() {
-    const [atracciones, setAtracciones] = useState([])
-    const [zonas,       setZonas]       = useState([])
+    // Atracciones y zonas del contexto global (sincronizadas con todas las páginas)
+    const { atracciones, zonas, cargandoGlobal, parqueInfo } = useApp()
+
+    // Solo el mapa de senderos se carga localmente (endpoint especializado)
     const [nodosMapa,   setNodosMapa]   = useState([])
     const [aristasMapa, setAristasMapa] = useState([])
     const [rutaNodos,   setRutaNodos]   = useState([])
@@ -758,29 +766,13 @@ export default function Rutas() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [resAtracciones, resZonas, resMapa] = await Promise.all([
-                rutaService.getColas(),        // GET /api/atracciones
-                rutaService.getFlujoPorZona(), // GET /api/zonas
-                rutaService.getSenderos(),     // GET /api/parque/mapa → { nodos, aristas }
-            ])
-
-            // GET /api/atracciones → lista de atracciones con propiedades reales
-            if (resAtracciones?.data) {
-                setAtracciones(Array.isArray(resAtracciones.data) ? resAtracciones.data : [])
-            }
-
-            // GET /api/zonas → lista de zonas con propiedades reales
-            if (resZonas?.data) {
-                setZonas(Array.isArray(resZonas.data) ? resZonas.data : [])
-            }
-
-            // GET /api/parque/mapa → { nodos: [...], aristas: [...] }
+            const resMapa = await parqueService.getMapa()
             if (resMapa?.data) {
                 setNodosMapa(resMapa.data.nodos || [])
                 setAristasMapa(resMapa.data.aristas || [])
             }
         } catch (e) {
-            console.error('[Rutas] Error cargando datos:', e.message)
+            console.error('[Rutas] Error cargando mapa:', e.message)
         } finally {
             setCargando(false)
         }
@@ -788,10 +780,10 @@ export default function Rutas() {
 
     useEffect(() => { fetchData() }, [fetchData])
 
-    // Métricas reales calculadas desde los datos del backend
+    // Métricas calculadas desde datos globales del contexto
     const atraccionesActivas = atracciones.filter(a => a.estado === 'ABIERTA' || a.estado === 'ACTIVA').length
-    const totalEnCola        = atracciones.reduce((s, a) => s + (a.contadorVisitantes || 0), 0)
-    const conEspera          = atracciones.filter(a => (a.tiempoEsperaEstimado || 0) > 0)
+    const totalEnCola = atracciones.reduce((s, a) => s + (a.visitantesEnCola ?? a.contadorVisitantes ?? 0), 0)
+    const conEspera = atracciones.filter(a => (a.tiempoEsperaEstimado || 0) > 0)
     const tiempoMedio        = conEspera.length > 0
         ? Math.round(conEspera.reduce((s, a) => s + a.tiempoEsperaEstimado, 0) / conEspera.length)
         : 0
@@ -812,9 +804,9 @@ export default function Rutas() {
                     className="animate-fade-up-delay-1"
                 />
                 <StatCard
-                    label="Total visitantes"
-                    value={cargando ? '…' : totalEnCola}
-                    sub="En atracciones ahora"
+                    label="Visitantes únicos"
+                    value={cargando ? '…' : (parqueInfo?.visitantesActuales ?? 0)}
+                    sub="En el parque ahora"
                     accent="#e63946"
                     icon={Users}
                     className="animate-fade-up-delay-2"

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+// src/pages/Inicio.jsx  ─── REEMPLAZO COMPLETO
+import { useState, useCallback } from 'react'
 import {
     Users, Zap, AlertTriangle, DollarSign,
-    MapPin, Clock, ChevronRight, Rocket,
+    MapPin, Clock, Rocket,
     Activity, TrendingUp, RefreshCw,
     CheckCircle, XCircle, Loader2,
 } from 'lucide-react'
@@ -9,7 +10,8 @@ import { StatCard } from '@/components/ui/Card'
 import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { parqueService, zonaService, atraccionService, reporteService } from '@/services/parqueService'
+import { parqueService } from '@/services/parqueService'
+import { useApp } from '@/context/AppContext'
 
 // ─── Paleta de colores para zonas (asignada por índice, no por ID hardcodeado) ─
 const ZONA_PALETTE = [
@@ -31,7 +33,6 @@ function getZonaPalette(index) {
     return ZONA_PALETTE[index % ZONA_PALETTE.length]
 }
 
-// Estado del backend → color
 function estadoColor(estado) {
     if (!estado) return '#6b7280'
     const e = estado.toUpperCase()
@@ -67,7 +68,7 @@ function HeroSection({ onCargarDatos, loading, mensaje, parqueAbierto, quickStat
 
             {/* Hero content */}
             <div className="relative z-10 max-w-7xl mx-auto px-6 pb-16 pt-32 w-full">
-                {/* Status pill — dato real: parque.estaAbierto */}
+                {/* Status pill */}
                 <div
                     className="animate-fade-up mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border"
                     style={{
@@ -143,7 +144,7 @@ function HeroSection({ onCargarDatos, loading, mensaje, parqueAbierto, quickStat
                     </div>
                 )}
 
-                {/* Quick stats bar — datos reales de /parque/info + /reportes/resumen */}
+                {/* Quick stats bar */}
                 <div
                     className="animate-fade-up-delay-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden"
                     style={{ background: 'var(--c-border)' }}
@@ -175,9 +176,6 @@ function HeroSection({ onCargarDatos, loading, mensaje, parqueAbierto, quickStat
 }
 
 // ─── Resumen en cards ─────────────────────────────────────────────────────────
-// Fuentes: /parque/info → visitantesActuales, capacidadMaxima, ingresosDiarios
-//          /reportes/resumen → alertasMantenimiento (u otras métricas)
-//          /atracciones → cuenta activas vs total
 function ResumenCards({ stats }) {
     const {
         visitantesActuales = 0,
@@ -233,14 +231,9 @@ function ResumenCards({ stats }) {
 }
 
 // ─── Sección de Zonas ─────────────────────────────────────────────────────────
-// Fuente: /zonas  → { id, nombre, capacidadMaxima, visitantesActuales, cantidadAtracciones, estaLlena }
-//         /zonas/{id}/atracciones → { zona, atracciones: [{ id, nombre, estado, tipo, visitantes }] }
-// Nota: el backend no devuelve tiempoEsperaEstimado ni cola en este endpoint;
-//       esos datos vienen de /atracciones. Se muestran los datos disponibles.
 function ZonasSection({ zonas, atraccionesPorZona }) {
     return (
         <section id="zonas" className="max-w-7xl mx-auto px-6 pb-12">
-            {/* Header */}
             <div className="flex items-end justify-between mb-6">
                 <div>
                     <h2 className="section-title">Estado por zonas</h2>
@@ -257,11 +250,9 @@ function ZonasSection({ zonas, atraccionesPorZona }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {zonas.map((zona, idx) => {
                     const { accent, glow, icono } = getZonaPalette(idx)
-                    // visitantesActuales y capacidadMaxima son los campos reales del backend
                     const actual = zona.visitantesActuales ?? 0
                     const max    = zona.capacidadMaxima    ?? 1
-                    const pct    = max > 0 ? Math.round((actual / max) * 100) : 0
-                    // atracciones cargadas para esta zona desde /zonas/{id}/atracciones
+                    const pct = max > 0 ? Math.max(actual > 0 ? 1 : 0, Math.round((actual / max) * 100)) : 0
                     const atracciones = atraccionesPorZona[zona.id] ?? []
 
                     return (
@@ -270,14 +261,12 @@ function ZonasSection({ zonas, atraccionesPorZona }) {
                             className="glass rounded-2xl overflow-hidden group hover:scale-[1.01] transition-transform duration-300"
                             style={{ borderTop: `2px solid ${accent}` }}
                         >
-                            {/* Glow bg */}
                             <div
                                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"
                                 style={{ background: glow }}
                             />
 
                             <div className="p-5 relative z-10">
-                                {/* Zona header */}
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3">
                                         <span className="text-2xl">{icono}</span>
@@ -289,7 +278,6 @@ function ZonasSection({ zonas, atraccionesPorZona }) {
                                                 {zona.nombre}
                                             </h3>
                                             <p className="text-xs mt-0.5" style={{ color: 'var(--c-muted)' }}>
-                                                {/* cantidadAtracciones viene directo del backend */}
                                                 {zona.cantidadAtracciones ?? atracciones.length} atracciones
                                             </p>
                                         </div>
@@ -302,20 +290,14 @@ function ZonasSection({ zonas, atraccionesPorZona }) {
                                     </span>
                                 </div>
 
-                                {/* Capacity bar */}
                                 <div className="mb-1.5">
-                                    <ProgressBar
-                                        value={actual}
-                                        max={max}
-                                        color={accent}
-                                    />
+                                    <ProgressBar value={actual} max={max} color={accent} />
                                 </div>
                                 <div className="flex justify-between text-xs mb-5" style={{ color: 'var(--c-muted)' }}>
                                     <span>{actual.toLocaleString('es-CO')} visitantes</span>
                                     <span>Máx. {max.toLocaleString('es-CO')}</span>
                                 </div>
 
-                                {/* Atracciones list */}
                                 {atracciones.length > 0 ? (
                                     <div className="space-y-2">
                                         {atracciones.map((a) => (
@@ -333,7 +315,6 @@ function ZonasSection({ zonas, atraccionesPorZona }) {
                                                         {a.nombre}
                                                     </span>
                                                 </div>
-                                                {/* visitantes en atracción — campo real: a.visitantes */}
                                                 {(a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA') ? (
                                                     <span
                                                         className="text-xs flex-shrink-0 flex items-center gap-1"
@@ -363,13 +344,7 @@ function ZonasSection({ zonas, atraccionesPorZona }) {
 }
 
 // ─── Atracciones destacadas ───────────────────────────────────────────────────
-// Fuente: /atracciones → { id, nombre, tipo, estado, contadorVisitantes,
-//                          tiempoEsperaEstimado, alturaMinima, edadMinima, costoAdicional }
-// Se enriquece con zona asignada a partir de los datos de zonas
 function AtraccionesDestacadas({ atracciones, zonas }) {
-    // Construye un mapa id_atraccion → nombre de zona, usando atraccionesPorZona si se dispone
-    // Como aquí recibimos atracciones planas del endpoint /atracciones, mostramos lo disponible
-
     return (
         <section className="max-w-7xl mx-auto px-6 pb-16">
             <div className="flex items-end justify-between mb-6">
@@ -405,7 +380,6 @@ function AtraccionesDestacadas({ atracciones, zonas }) {
 }
 
 function AtraccionCard({ atraccion: a, delay, zonas }) {
-    // Asigna color de zona por índice si no hay info directa
     const paletteIdx = zonas.findIndex(z =>
         z.nombre?.toLowerCase().includes(a.tipo?.toLowerCase?.() ?? '')
     )
@@ -418,7 +392,6 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
             className="glass rounded-2xl p-4 flex items-center gap-4 group hover:scale-[1.01] transition-all duration-300"
             style={{ animationDelay: `${delay * 0.08}s` }}
         >
-            {/* Color block */}
             <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: `${zonaColor}18`, border: `0.5px solid ${zonaColor}30` }}
@@ -426,7 +399,6 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
                 <Activity size={20} style={{ color: zonaColor }} />
             </div>
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
                 <h4
                     className="font-semibold text-sm truncate"
@@ -434,18 +406,15 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
                 >
                     {a.nombre}
                 </h4>
-                {/* tipo es el campo real del backend */}
                 <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--c-muted)' }}>
                     {a.tipo ?? '—'}
                 </p>
                 {esActiva && (
                     <div className="flex items-center gap-3 mt-2">
-                        {/* contadorVisitantes — campo real */}
                         <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--c-dim)' }}>
                             <Users size={10} />
-                            {a.contadorVisitantes ?? 0} visitantes
+                            {a.visitantesEnCola ?? a.contadorVisitantes ?? 0} visitantes
                         </span>
-                        {/* tiempoEsperaEstimado — campo real */}
                         {(a.tiempoEsperaEstimado ?? 0) > 0 && (
                             <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--c-dim)' }}>
                                 <Clock size={10} />
@@ -456,7 +425,6 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
                 )}
             </div>
 
-            {/* Status dot */}
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
                 <span
                     className="w-2.5 h-2.5 rounded-full"
@@ -557,128 +525,68 @@ function CargarDatosSection({ onCargarDatos, loading, mensaje }) {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function Inicio() {
-    // ── Estado real del parque (/parque/info)
-    const [parqueInfo, setParqueInfo]   = useState(null)
-    // ── Resumen rápido del reporte (/reportes/resumen)
-    const [resumen, setResumen]         = useState(null)
-    // ── Lista real de zonas (/zonas)
-    const [zonas, setZonas]             = useState([])
-    // ── Atracciones por zona: { [zonaId]: [...] }  (/zonas/{id}/atracciones)
-    const [atraccionesPorZona, setAtraccionesPorZona] = useState({})
-    // ── Lista plana de atracciones (/atracciones) para la sección destacadas
-    const [atracciones, setAtracciones] = useState([])
-    // ── UI
-    const [loading, setLoading]         = useState(false)
-    const [fetching, setFetching]       = useState(true)
-    const [mensaje, setMensaje]         = useState(null)
-    const [backendOk, setBackendOk]     = useState(null)
+    const {
+        parqueInfo,
+        zonas,
+        atracciones,
+        atraccionesPorZona,
+        alertasMantenimiento,
+        resumen,
+        cargandoGlobal,
+        backendOk,
+        refrescarTodo,
+        setDatosCargados,
+    } = useApp()
 
-    // ── Carga todos los datos del backend ─────────────────────────────────────
-    const fetchTodo = useCallback(async () => {
-        setFetching(true)
-        try {
-            // 1. Datos del parque + resumen de reportes + atracciones (en paralelo)
-            const [resInfo, resResumen, resAtracciones, resZonas] = await Promise.allSettled([
-                parqueService.getInfo(),
-                reporteService.getResumen(),
-                atraccionService.getAll(),
-                zonaService.getAll(),
-            ])
-
-            if (resInfo.status === 'fulfilled')        setParqueInfo(resInfo.value.data)
-            if (resResumen.status === 'fulfilled')     setResumen(resResumen.value.data)
-            if (resAtracciones.status === 'fulfilled') setAtracciones(resAtracciones.value.data ?? [])
-
-            if (resZonas.status === 'fulfilled') {
-                const zonasData = resZonas.value.data ?? []
-                setZonas(zonasData)
-
-                // 2. Por cada zona, carga sus atracciones (/zonas/{id}/atracciones)
-                const fetchesAtracciones = await Promise.allSettled(
-                    zonasData.map(z => zonaService.getAtracciones(z.id))
-                )
-                const mapa = {}
-                fetchesAtracciones.forEach((res, idx) => {
-                    if (res.status === 'fulfilled') {
-                        // El backend devuelve: { zona: "Nombre", atracciones: [...] }
-                        mapa[zonasData[idx].id] = res.value.data?.atracciones ?? []
-                    }
-                })
-                setAtraccionesPorZona(mapa)
-            }
-
-            setBackendOk(true)
-        } catch {
-            setBackendOk(false)
-        } finally {
-            setFetching(false)
-        }
-    }, [])
-
-    useEffect(() => {
-        fetchTodo()
-    }, [fetchTodo])
+    const [loading,  setLoading]  = useState(false)
+    const [mensaje,  setMensaje]  = useState(null)
 
     // ── Cargar escenario de prueba ────────────────────────────────────────────
-    // Usa cargarDatosPrueba() → POST /api/parque/cargar-datos-prueba
-    async function handleCargarDatos() {
+    const handleCargarDatos = useCallback(async () => {
         setLoading(true)
         setMensaje(null)
         try {
             await parqueService.cargarDatosPrueba()
             setMensaje({ ok: true, texto: 'Escenario cargado correctamente ✓' })
-            // Refresca todos los datos tras la carga
-            await fetchTodo()
+            setDatosCargados(true)
+            await refrescarTodo()
         } catch {
             setMensaje({ ok: false, texto: 'Error: no se pudo conectar al backend' })
         } finally {
             setLoading(false)
         }
-    }
+    }, [refrescarTodo, setDatosCargados])
 
-    // ── Derivar stats para ResumenCards ──────────────────────────────────────
-    // Combina /parque/info + /atracciones + /reportes/resumen
+    // ── Derivar stats ─────────────────────────────────────────────────────────
+    const alertasPendientes = Array.isArray(alertasMantenimiento)
+        ? alertasMantenimiento.filter(a => !a.resuelta).length
+        : (resumen?.alertasMantenimiento ?? 0)
+
     const stats = {
-        // /parque/info
         visitantesActuales: parqueInfo?.visitantesActuales ?? 0,
         capacidadMaxima:    parqueInfo?.capacidadMaxima    ?? 1,
         ingresosDiarios:    parqueInfo?.ingresosDiarios    ?? 0,
-        // conteo de atracciones activas desde /atracciones
         atraccionesActivas: atracciones.filter(
             a => a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA'
         ).length,
         totalAtracciones: atracciones.length,
-        // alertas pendientes desde /reportes/resumen (si el backend lo expone)
-        // o se puede complementar con /alertas/mantenimiento/pendientes
-        alertas: resumen?.alertasMantenimiento ?? resumen?.alertasPendientes ?? 0,
+        alertas: alertasPendientes,
     }
 
-    // ── Quick stats para la barra del Hero ───────────────────────────────────
     const quickStats = [
-        {
-            label: 'Visitantes hoy',
-            value: stats.visitantesActuales.toLocaleString('es-CO'),
-        },
-        {
-            label: 'Capacidad máx.',
-            value: stats.capacidadMaxima.toLocaleString('es-CO'),
-        },
-        {
-            label: 'Ingresos del día',
-            value: formatCurrency(stats.ingresosDiarios),
-        },
-        {
-            label: 'Atracciones activas',
-            value: stats.totalAtracciones > 0
+        { label: 'Visitantes hoy',      value: stats.visitantesActuales.toLocaleString('es-CO') },
+        { label: 'Capacidad máx.',       value: stats.capacidadMaxima.toLocaleString('es-CO') },
+        { label: 'Ingresos del día',     value: formatCurrency(stats.ingresosDiarios) },
+        { label: 'Atracciones activas',  value: stats.totalAtracciones > 0
                 ? `${stats.atraccionesActivas}/${stats.totalAtracciones}`
-                : '—',
+                : '—'
         },
     ]
 
     return (
         <div style={{ background: 'var(--c-night)' }}>
             {/* Spinner de carga inicial */}
-            {fetching && (
+            {cargandoGlobal && (
                 <div
                     className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
                     style={{
@@ -691,6 +599,24 @@ export default function Inicio() {
                     <Loader2 size={12} className="animate-spin" />
                     Sincronizando con el backend…
                 </div>
+            )}
+
+            {/* Botón de refresco manual */}
+            {!cargandoGlobal && (
+                <button
+                    onClick={refrescarTodo}
+                    className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+                    style={{
+                        background: 'rgba(13,15,20,0.85)',
+                        border: '0.5px solid var(--c-border)',
+                        color: 'var(--c-muted)',
+                        backdropFilter: 'blur(12px)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <RefreshCw size={12} />
+                    Actualizar
+                </button>
             )}
 
             {/* Backend no disponible */}

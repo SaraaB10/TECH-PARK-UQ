@@ -34,4 +34,12 @@ public class ColaVirtual {
     }
 
     public Atraccion getAtraccion() { return atraccion; }
+
+    public boolean estaEnCola(Visitante visitante) {
+        return cola.contiene(visitante);
+    }
+
+    public boolean remover(Visitante visitante) {
+        return cola.remover(visitante);
+    }
 }

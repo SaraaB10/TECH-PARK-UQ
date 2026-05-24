@@ -61,6 +61,10 @@ public class ServicioCargaDatos {
         servicioParque.venderTicket(v1, "FAST_PASS");
         servicioParque.venderTicket(v2, "GENERAL");
 
+        // Meter visitantes precargados en colas reales
+        servicioParque.validarAcceso("A-001", "V-001"); // Laura → Montaña Rusa Extrema
+        servicioParque.validarAcceso("A-003", "V-002"); // Pedro → Tobogán Gigante
+
         // Grafo del parque
         GrafoParque grafo = parque.getGrafoParque();
 

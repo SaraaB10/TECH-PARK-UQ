@@ -6,6 +6,7 @@ import techpark_uq.modelo.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import java.io.InputStream;
+import java.util.List;
 
 @Service
 public class ServicioCargaJson {
@@ -96,6 +97,8 @@ public class ServicioCargaJson {
                 visitantes++;
             }
 
+
+
             // Cargar Senderos en el Grafo
             GrafoParque grafo = parque.getGrafoParque();
             for (Atraccion a : parque.obtenerTodasLasAtracciones()) {
@@ -108,6 +111,21 @@ public class ServicioCargaJson {
                         s.get("distancia").asDouble()
                 );
             }
+
+            // Asignar visitantes precargados a colas reales
+            List<Visitante> todosVisitantes   = parque.getVisitantes();
+            List<Atraccion> todasAtracciones  = parque.obtenerTodasLasAtracciones();
+            for (int i = 0; i < todosVisitantes.size() && i < todasAtracciones.size(); i++) {
+                Visitante v = todosVisitantes.get(i);
+                Atraccion a = todasAtracciones.get(i);
+                // Verificar que cumple requisitos mínimos antes de agregar
+                if (v.getEstatura() >= a.getAlturaMinima() && v.getEdad() >= a.getEdadMinima()) {
+                    servicioParque.validarAcceso(a.getId(), v.getId());
+                }
+            }
+
+            // Marca el escenario como cargado correctamente
+            cargado = true;
 
             // Marca el escenario como cargado correctamente
             cargado = true;
