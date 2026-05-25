@@ -110,7 +110,8 @@ export function AppProvider({ children }) {
             saldoInicial: data.saldo,
         }
         setVisitanteRaw(v)
-        setSaldo(data.saldo ?? 0)
+        const costoTicket = COSTO_TICKET[data.tipoTicket] ?? 0
+        setSaldo(Math.max(0, (data.saldo ?? 0) - costoTicket))
         // Cargar historial y notifs
         try {
             const [histRes, notifRes] = await Promise.allSettled([

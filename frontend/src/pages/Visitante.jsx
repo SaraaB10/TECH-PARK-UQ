@@ -11,6 +11,7 @@ import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Input, Select } from '@/components/ui/Input'
 import { visitanteService, atraccionService, alertaService } from '@/services/parqueService'
+import { imagenAtraccionService } from '@/services/imagenAtraccionService'
 import { useApp, COSTO_TICKET } from '@/context/AppContext'
 import { LogIn } from 'lucide-react'
 
@@ -59,7 +60,7 @@ function prioridadDeTicket(tipoUI) {
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
-function HeroVisitante({ visitante, saldo, visitasTotal }) {
+function HeroVisitante({ visitante, saldo, visitasTotal, onCerrarSesion }) {
     if (!visitante) return null
     const tipoUI    = normalizarTipo(visitante.tipoTicket)
     const prioridad = prioridadDeTicket(tipoUI)
@@ -95,16 +96,26 @@ function HeroVisitante({ visitante, saldo, visitasTotal }) {
                             </span>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 w-full md:w-auto">
-                        {[
-                            { label: 'Saldo disponible', value: formatPeso(saldo), color: (saldo ?? 0) > 0 ? '#22c55e' : '#e63946' },
-                            { label: 'Visitas',           value: visitasTotal ?? 0,  color: '#6a4c93' },
-                        ].map(({ label, value, color }) => (
-                            <div key={label} className="glass rounded-xl px-4 py-3 text-center">
-                                <div className="text-lg font-bold" style={{ fontFamily: 'var(--font-display)', color }}>{value}</div>
-                                <div className="text-xs mt-0.5" style={{ color: 'var(--c-muted)' }}>{label}</div>
-                            </div>
-                        ))}
+
+                    <div className="flex flex-col items-end gap-3">
+                        <button
+                            onClick={onCerrarSesion}
+                            className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                            style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.25)' }}
+                        >
+                            <X size={12} /> Cerrar sesión
+                        </button>
+                        <div className="grid grid-cols-2 gap-3">
+                            {[
+                                { label: 'Saldo disponible', value: formatPeso(saldo), color: (saldo ?? 0) > 0 ? '#22c55e' : '#e63946' },
+                                { label: 'Visitas',           value: visitasTotal ?? 0,  color: '#6a4c93' },
+                            ].map(({ label, value, color }) => (
+                                <div key={label} className="glass rounded-xl px-4 py-3 text-center">
+                                    <div className="text-lg font-bold" style={{ fontFamily: 'var(--font-display)', color }}>{value}</div>
+                                    <div className="text-xs mt-0.5" style={{ color: 'var(--c-muted)' }}>{label}</div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -504,9 +515,11 @@ function ColaVirtual({ visitanteId, visitanteTipoTicket, atracciones }) {
                             <>
                                 <ProgressBar value={Math.max(1, 20 - (colaInfo.visitantesEnCola || 0))} max={20} color="#2a9d8f" />
                                 <div className="flex items-center justify-between text-xs mt-2">
-                                    <span style={{ color: 'var(--c-muted)' }}>
+                                    <span style={{ color: '#e9c46a' }}>
                                         <Clock size={10} className="inline mr-1" />
-                                        ~{colaActiva.tiempoEsperaEstimado ?? 0} min estimado
+                                        {(colaActiva.tiempoEsperaEstimado ?? 0) > 0
+                                            ? `~${colaActiva.tiempoEsperaEstimado} min estimado`
+                                            : 'Sin tiempo de espera estimado'}
                                     </span>
                                     <Badge variant={(colaInfo.visitantesEnCola ?? 0) < 15 ? 'active' : 'pending'} dot>
                                         {(colaInfo.visitantesEnCola ?? 0) < 15 ? 'Flujo normal' : 'Alta demanda'}
@@ -538,8 +551,11 @@ function ColaVirtual({ visitanteId, visitanteTipoTicket, atracciones }) {
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 ml-3 text-xs" style={{ color: 'var(--c-muted)' }}>
-                                {a.tiempoEsperaEstimado > 0 && <div>~{a.tiempoEsperaEstimado} min</div>}
-                                <div>{a.contadorVisitantes} visitantes</div>
+                                <div className="flex items-center gap-1 justify-end" style={{ color: '#e9c46a' }}>
+                                    <Clock size={10} />
+                                    {(a.tiempoEsperaEstimado ?? 0) > 0 ? `~${a.tiempoEsperaEstimado} min` : 'Sin espera'}
+                                </div>
+                                <div>{a.contadorVisitantes ?? 0} visitantes</div>
                             </div>
                         </div>
                     ))}
@@ -547,6 +563,14 @@ function ColaVirtual({ visitanteId, visitanteTipoTicket, atracciones }) {
             </div>
         </div>
     )
+}
+
+const IMAGENES_DEFAULT = {
+    'A-001': 'https://images.unsplash.com/photo-1582198790133-3692e01f649c?w=400',
+    'A-002': 'https://images.unsplash.com/photo-1751896077567-c5529b9173f9?w=400',
+    'A-003': 'https://plus.unsplash.com/premium_photo-1756150779285-b0c43ace54ad?w=400',
+    'A-004': 'https://images.unsplash.com/photo-1638981108338-a0c9ee4a83ed?w=400',
+    'A-005': 'https://images.unsplash.com/photo-1763634707829-16110077ade6?w=400',
 }
 
 // ─── Favoritos ────────────────────────────────────────────────────────────────
@@ -619,9 +643,20 @@ function Favoritos({ favoritos, setFavoritos, visitanteId, atracciones }) {
                     return (
                         <div key={f.id} className="flex items-center gap-3 rounded-xl px-4 py-3 group"
                              style={{ background: 'rgba(255,255,255,0.03)', border: `0.5px solid ${accent}30` }}>
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                                 style={{ background: `${accent}18`, border: `0.5px solid ${accent}30` }}>
-                                <Activity size={15} style={{ color: accent }} />
+                            <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0"
+                                 style={{ border: `0.5px solid ${accent}30` }}>
+                                {imagenAtraccionService.get(f.id) || IMAGENES_DEFAULT[f.id] ? (
+                                    <img
+                                        src={imagenAtraccionService.get(f.id) || IMAGENES_DEFAULT[f.id]}
+                                        alt={f.nombre}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center"
+                                         style={{ background: `${accent}18` }}>
+                                        <Activity size={15} style={{ color: accent }} />
+                                    </div>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold truncate"
@@ -774,6 +809,7 @@ export default function Visitante() {
         atracciones,
         setFavoritos, setNotifs,
         refrescarAtracciones,
+        setVisitante,
     } = useApp()
 
     const [tab,     setTab]     = useState('cola')
@@ -806,7 +842,7 @@ export default function Visitante() {
             )}
 
             {/* Bienvenida: SOLO visible cuando hay visitante activo */}
-            {visitante && <HeroVisitante visitante={visitante} saldo={saldo} visitasTotal={historial.length} />}
+            {visitante && <HeroVisitante visitante={visitante} saldo={saldo} visitasTotal={historial.length} onCerrarSesion={() => setVisitante(null)} />}
 
             {/* Panel de autenticación: SOLO visible cuando NO hay visitante activo */}
             {!visitante && (
