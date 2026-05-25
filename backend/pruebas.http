@@ -1,0 +1,22 @@
+### Cargar datos de prueba
+POST http://localhost:8080/api/parque/cargar-datos-prueba
+
+###
+
+### Ver estado de carga
+GET http://localhost:8080/api/parque/estado-carga
+
+###
+
+### Ver zonas
+GET http://localhost:8080/api/zonas
+
+###
+
+### Ver atracciones
+GET http://localhost:8080/api/atracciones
+
+###
+
+### Ver mapa
+GET http://localhost:8080/api/parque/mapa
