@@ -887,6 +887,17 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
         finally { setLoadingDel(null) }
     }
 
+    // ── CORRECCIÓN: procesa el siguiente visitante en la cola y refresca
+    // tiempoEsperaEstimado en el contexto global → se propaga a todas las páginas.
+    async function handleProcesarCola(id) {
+        try {
+            await atraccionService.procesarCola(id)
+            // onRefresh llama a refrescarAtracciones → GET /api/atracciones
+            // actualiza tiempoEsperaEstimado y visitantesEnCola en el contexto.
+            await onRefresh()
+        } catch (e) { console.error('Error procesando cola:', e) }
+    }
+
     return (
         <div className="glass rounded-2xl overflow-hidden mb-6">
             <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--c-border)' }}>
@@ -982,6 +993,19 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
                                                 style={{ background: 'rgba(69,123,157,0.12)', color: '#457b9d', border: '0.5px solid rgba(69,123,157,0.25)' }}
                                                 onClick={() => iniciarEdicion(a)}>
                                             ✏️
+                                        </button>
+                                        {/* ── CORRECCIÓN: botón para procesar cola y bajar tiempoEspera ── */}
+                                        <button title={`Procesar siguiente en cola (${a.visitantesEnCola ?? 0} en espera)`}
+                                                className="text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                                                style={{
+                                                    background: (a.visitantesEnCola ?? 0) > 0 ? 'rgba(42,157,143,0.12)' : 'rgba(255,255,255,0.04)',
+                                                    color: (a.visitantesEnCola ?? 0) > 0 ? '#2a9d8f' : 'var(--c-muted)',
+                                                    border: `0.5px solid ${(a.visitantesEnCola ?? 0) > 0 ? 'rgba(42,157,143,0.25)' : 'var(--c-border)'}`,
+                                                    cursor: (a.visitantesEnCola ?? 0) > 0 ? 'pointer' : 'not-allowed',
+                                                }}
+                                                onClick={() => handleProcesarCola(a.id)}
+                                                disabled={!(a.visitantesEnCola ?? 0)}>
+                                            ▶
                                         </button>
                                         <button title="Cerrar atracción"
                                                 className="text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
