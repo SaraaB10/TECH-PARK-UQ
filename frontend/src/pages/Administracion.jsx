@@ -698,11 +698,12 @@ function Mantenimiento({ items, setItems, onRefreshAtracciones, onRefreshAlertas
         setLoading(idAlerta)
         try {
             await alertaService.resolverMantenimiento(idAlerta)
-            setItems(prev => prev.map(m => m.id === idAlerta ? { ...m, resuelta: true } : m))
-            // Refrescar atracciones porque el backend las reactiva
+            // Marcar como resuelta en mantCtx directamente — esto actualiza
+            // el panel y el contador "Mantenimientos resueltos" del resumen
+            setItems(prev => prev.map(m =>
+                String(m.id || m.idAlerta) === String(idAlerta) ? { ...m, resuelta: true } : m
+            ))
             await onRefreshAtracciones()
-            // Refrescar alertas para sincronizar el Resumen del sistema
-            if (onRefreshAlertas) await onRefreshAlertas()
         } catch (e) { console.error('Error resolviendo alerta:', e) }
         finally { setLoading(null) }
     }
@@ -776,7 +777,7 @@ const TIPO_ATRACCION_OPTIONS = [
     { value: 'FAMILIAR',        label: 'Familiar' },
 ]
 
-function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas }) {
+function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, setMantCtx }) {
     const [showForm,    setShowForm]    = useState(false)
     const [loading,     setLoading]     = useState(false)
     const [error,       setError]       = useState('')
@@ -830,13 +831,33 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
     async function handleGuardarEdicion(a) {
         setLoadingEdit(true)
         try {
-            // Actualizar estado si cambió
-            if (editForm.estado && editForm.estado !== a.estado) {
+            const estadoCambio = editForm.estado && editForm.estado !== a.estado
+            if (estadoCambio) {
                 await atraccionService.cambiarEstado(a.id, editForm.estado)
+
+                if (editForm.estado === 'EN_MANTENIMIENTO') {
+                    // Insertar alerta sintética en mantCtx para que aparezca
+                    // inmediatamente en el panel y en los contadores
+                    const nuevaAlerta = {
+                        id:              `mant-${a.id}-${Date.now()}`,
+                        nombreAtraccion: a.nombre,
+                        idAtraccion:     a.id,
+                        resuelta:        false,
+                        fecha:           new Date().toISOString(),
+                        descripcion:     'Mantenimiento preventivo',
+                    }
+                    setMantCtx(prev => [...prev, nuevaAlerta])
+                } else if (editForm.estado === 'ACTIVA') {
+                    // Marcar como resuelta la alerta pendiente de esta atracción
+                    setMantCtx(prev => prev.map(m => {
+                        const idAtr = m.idAtraccion || m.atraccionId || m.atraccion
+                        return String(idAtr) === String(a.id) && !m.resuelta
+                            ? { ...m, resuelta: true }
+                            : m
+                    }))
+                }
             }
             await onRefresh()
-            // Refrescar alertas de mantenimiento para sincronizar el panel
-            if (onRefreshAlertas) await onRefreshAlertas()
             setEditando(null)
         } catch (e) { console.error('Error editando atracción:', e) }
         finally { setLoadingEdit(false) }
@@ -1118,8 +1139,7 @@ export default function Administracion() {
 
     const setMantenimiento = useCallback((updater) => {
         setMantCtx(prev => {
-            const adapted = prev.map(adaptarAlertaMantenimiento)
-            const updated = typeof updater === 'function' ? updater(adapted) : updater
+            const updated = typeof updater === 'function' ? updater(prev) : updater
             return updated
         })
     }, [setMantCtx])
@@ -1159,6 +1179,7 @@ export default function Administracion() {
                                 zonas={zonas}
                                 onRefresh={refrescarAtracciones}
                                 onRefreshAlertas={refrescarAlertas}
+                                setMantCtx={setMantCtx}
                             />
                             <GestionZonas
                                 zonas={zonas}
@@ -1190,10 +1211,11 @@ export default function Administracion() {
                                     <h3 className="text-sm font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Resumen del sistema</h3>
                                     <div className="space-y-3">
                                         {[
-                                            { label: 'Operadores activos',       value: operadores.filter(o => o.activo).length,   total: operadores.length,    color: '#2a9d8f' },
-                                            { label: 'Zonas disponibles',         value: zonas.filter(z => !z.estaLlena).length,   total: zonas.length,         color: '#f4a261' },
-                                            { label: 'Mantenimientos resueltos', value: mantenimiento.filter(m => m.resuelta).length, total: mantenimiento.length, color: '#22c55e' },
-                                            { label: 'Alertas climáticas',       value: alertas.filter(a => a.activa).length,      total: alertas.length,       color: '#e63946' },
+                                            { label: 'Operadores activos',           value: operadores.filter(o => o.activo).length,                                    total: operadores.length,      color: '#2a9d8f' },
+                                            { label: 'Zonas disponibles',            value: zonas.filter(z => !z.estaLlena).length,                                     total: zonas.length,           color: '#f4a261' },
+                                            { label: 'Mantenimiento preventivo',     value: atraccionesCtx.filter(a => a.estado === 'EN_MANTENIMIENTO').length,          total: atraccionesCtx.length,  color: '#e63946' },
+                                            { label: 'Mantenimientos resueltos',     value: mantenimiento.filter(m => m.resuelta).length,                               total: mantenimiento.length,   color: '#22c55e' },
+                                            { label: 'Alertas climáticas activas',  value: alertas.filter(a => a.activa).length,                                       total: alertas.length,         color: '#e9c46a' },
                                         ].map(({ label, value, total, color }) => (
                                             <div key={label}>
                                                 <div className="flex justify-between text-xs mb-1.5">
