@@ -78,10 +78,9 @@ public class TechParkUQTest {
                 TipoAtraccion.ESPECTACULO, 100, 0.0, 0, 0);
 
         parque.agregarZona(zona);
-        parque.agregarAtraccionAZona(acuatica, "Z-001");
-        parque.agregarAtraccionAZona(mecanica, "Z-001");
-        parque.agregarAtraccionAZona(espectaculo, "Z-001");
-
+        parque.agregarAtraccionAZona(acuatica, "Z-001", 10);
+        parque.agregarAtraccionAZona(mecanica, "Z-001", 15);
+        parque.agregarAtraccionAZona(espectaculo, "Z-001", 20);
         parque.activarAlertaClimatica(TipoClima.TORMENTA_ELECTRICA);
 
         assertEquals(EstadoAtraccion.CERRADA, acuatica.getEstado(),

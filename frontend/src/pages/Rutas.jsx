@@ -797,7 +797,7 @@ export default function Rutas() {
         } finally {
             setCargando(false)
         }
-    }, [])
+    }, [atracciones])
 
     useEffect(() => { fetchData() }, [fetchData])
 
