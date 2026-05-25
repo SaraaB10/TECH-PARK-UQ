@@ -130,12 +130,19 @@ public class TechParkUQ {
         return todas;
     }
 
-    public void agregarAtraccionAZona(Atraccion atraccion, String idZona) {
+    public void agregarAtraccionAZona(Atraccion atraccion, String idZona, double distancia) {
         Zona zona = buscarZona(idZona);
         if (zona != null) {
+            // Conectar con cada atracción ya existente en la zona usando la distancia real
+            for (Atraccion existente : zona.getAtracciones()) {
+                grafoParque.agregarSendero(atraccion.getId(), existente.getId(), distancia);
+            }
             zona.agregarAtraccion(atraccion);
             atraccion.setZona(zona);
             catalogoAtracciones.insertar(atraccion.getNombre());
+            // Registrar el nodo en el grafo después de agregar las aristas
+            // (agregarSendero ya registra los nodos, pero lo hacemos explícito)
+            grafoParque.agregarAtraccion(atraccion);
         }
     }
 

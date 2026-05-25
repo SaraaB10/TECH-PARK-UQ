@@ -219,10 +219,12 @@ export function AppProvider({ children }) {
     // ── Solo atracciones ──────────────────────────────────────────────────────
     const refrescarAtracciones = useCallback(async () => {
         try {
-            const [resAtr, resZonas] = await Promise.allSettled([
+            const [resAtr, resZonas, resInfo] = await Promise.allSettled([
                 atraccionService.getAll(),
                 zonaService.getAll(),
+                parqueService.getInfo(),
             ])
+            if (resInfo.status === 'fulfilled') setParqueInfo(resInfo.value.data)
             if (resAtr.status === 'fulfilled') setAtracciones(resAtr.value.data ?? [])
             if (resZonas.status === 'fulfilled') {
                 const zonasData = resZonas.value.data ?? []

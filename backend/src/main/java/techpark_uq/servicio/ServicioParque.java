@@ -323,4 +323,11 @@ public class ServicioParque {
         }
         return resultado;
     }
+
+    public String crearAtraccionEnZona(Atraccion atraccion, String zonaId, double distancia) {
+        Zona zona = parque.buscarZona(zonaId);
+        if (zona == null) return "Zona no encontrada: " + zonaId;
+        parque.agregarAtraccionAZona(atraccion, zonaId, distancia);
+        return "Atracción creada correctamente: " + atraccion.getNombre();
+    }
 }

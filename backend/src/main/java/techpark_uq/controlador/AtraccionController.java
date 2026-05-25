@@ -1,5 +1,6 @@
 package techpark_uq.controlador;
 
+import techpark_uq.enums.TipoAtraccion;
 import techpark_uq.modelo.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -104,5 +105,34 @@ public class AtraccionController {
                 "visitantesEnCola", atraccion.getColaVirtual().tamano(),
                 "tiempoEsperaEstimado", atraccion.getTiempoEsperaEstimado()
         ));
+    }
+
+    // POST: crea una nueva atracción, la agrega a una zona y la conecta al grafo
+    @PostMapping
+    public ResponseEntity<String> crearAtraccion(@RequestBody Map<String, Object> body) {
+        String id     = (String) body.get("id");
+        String nombre = (String) body.get("nombre");
+        String tipo   = (String) body.get("tipo");
+        String zonaId = (String) body.get("zonaId");
+
+        if (id == null || nombre == null || zonaId == null)
+            return ResponseEntity.badRequest().body("id, nombre y zonaId son obligatorios");
+
+        int    capacidad  = body.get("capacidadMaxima")      != null ? ((Number) body.get("capacidadMaxima")).intValue()      : 20;
+        double altura     = body.get("alturaMinima")          != null ? ((Number) body.get("alturaMinima")).doubleValue()      : 0;
+        int    edad       = body.get("edadMinima")            != null ? ((Number) body.get("edadMinima")).intValue()           : 0;
+        int    tiempoEsp  = body.get("tiempoEsperaEstimado") != null ? ((Number) body.get("tiempoEsperaEstimado")).intValue() : 0;
+        double distancia  = body.get("distancia")            != null ? ((Number) body.get("distancia")).doubleValue()         : 50;
+
+        techpark_uq.enums.TipoAtraccion tipoEnum;
+        try {
+            tipoEnum = techpark_uq.enums.TipoAtraccion.valueOf(tipo != null ? tipo : "OTRO");
+        } catch (IllegalArgumentException ex) {
+            tipoEnum = techpark_uq.enums.TipoAtraccion.OTRO;
+        }
+
+        Atraccion nueva = new Atraccion(id, nombre, tipoEnum, capacidad, altura, edad, tiempoEsp);
+        String resultado = servicioParque.crearAtraccionEnZona(nueva, zonaId, distancia);
+        return ResponseEntity.ok(resultado);
     }
 }

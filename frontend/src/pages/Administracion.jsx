@@ -236,7 +236,10 @@ function GestionOperadores({ operadores, operadoresRaw = [], setOperadores, zona
             setForm({ id: '', nombre: '', edad: '', telefono: '', email: '', contrasena: '' })
             setShowForm(false)
         } catch (e) {
-            setError(e?.response?.data || 'Error al crear operador.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al crear el operador.'
+            setError(msg)
         } finally { setLoading(false) }
     }
 
@@ -295,7 +298,10 @@ function GestionOperadores({ operadores, operadoresRaw = [], setOperadores, zona
             await onRefresh()
             setEditando(null)
         } catch (e) {
-            setEditError(e?.response?.data || 'Error al actualizar el operador.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al actualizar el operador.'
+            setError(msg)
         } finally { setLoadingEdit(false) }
     }
 
@@ -466,7 +472,10 @@ function GestionZonas({ zonas, onRefresh }) {
             setForm({ id: '', nombre: '', capacidadMaxima: '' })
             setShowForm(false)
         } catch (e) {
-            setError(e?.response?.data || 'Error al crear la zona.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al crear la zona.'
+            setError(msg)
         } finally { setLoading(false) }
     }
 
@@ -774,7 +783,7 @@ const TIPO_ATRACCION_OPTIONS = [
     { value: 'MECANICA_ALTURA', label: 'Mecánica de Altura' },
     { value: 'ACUATICA',        label: 'Acuática' },
     { value: 'ESPECTACULO',     label: 'Espectáculo' },
-    { value: 'FAMILIAR',        label: 'Familiar' },
+    { value: 'OTRO',            label: 'Otro' },
 ]
 
 function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, setMantCtx }) {
@@ -788,7 +797,7 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
     const [form, setForm] = useState({
         id: '', nombre: '', tipo: 'MECANICA_ALTURA',
         capacidadMaxima: '', alturaMinima: '', edadMinima: '',
-        tiempoEsperaEstimado: '', zonaId: '',
+        tiempoEsperaEstimado: '', zonaId: '', distancia: '',
     })
 
     async function handleCrear() {
@@ -811,13 +820,18 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
                 edadMinima:           form.edadMinima      ? parseInt(form.edadMinima, 10)      : 0,
                 tiempoEsperaEstimado: form.tiempoEsperaEstimado ? parseInt(form.tiempoEsperaEstimado, 10) : 0,
                 zonaId:               form.zonaId,
+                distancia:            form.distancia ? parseFloat(form.distancia) : 50,
             })
             await onRefresh()
-            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '' })
+            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '', distancia: '' })
             setShowForm(false)
         } catch (e) {
-            setError(e?.response?.data || 'Error al crear la atracción.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al crear la atracción.'
+            setError(msg)
         } finally { setLoading(false) }
+
     }
 
     function iniciarEdicion(a) {
@@ -891,6 +905,7 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
             </div>
 
             {showForm && (
+
                 <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)', background: 'rgba(255,255,255,0.02)' }}>
                     {error && <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.2)' }}>{error}</p>}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -906,6 +921,7 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
                         <Input label="Altura mínima (m)" type="number" min="0" placeholder="Ej: 1.40" value={form.alturaMinima} onChange={e => setForm(p => ({ ...p, alturaMinima: e.target.value }))} />
                         <Input label="Edad mínima" type="number" min="0" placeholder="Ej: 8" value={form.edadMinima} onChange={e => setForm(p => ({ ...p, edadMinima: e.target.value }))} />
                         <Input label="Tiempo de espera estimado (min)" type="number" min="0" placeholder="Ej: 15" value={form.tiempoEsperaEstimado} onChange={e => setForm(p => ({ ...p, tiempoEsperaEstimado: e.target.value }))} />
+                        <Input label="Distancia a otras atracciones (m)" type="number" min="1" placeholder="Ej: 80" value={form.distancia} onChange={e => setForm(p => ({ ...p, distancia: e.target.value }))} />
                         <div>
                             <label className="tp-label">Zona</label>
                             <select className="tp-input tp-select w-full" value={form.zonaId} onChange={e => setForm(p => ({ ...p, zonaId: e.target.value }))}>
