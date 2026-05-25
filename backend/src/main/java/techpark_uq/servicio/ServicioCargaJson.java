@@ -1,4 +1,5 @@
 package techpark_uq.servicio;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import techpark_uq.enums.TipoAtraccion;
@@ -15,17 +16,16 @@ public class ServicioCargaJson {
     private final ObjectMapper objectMapper;
     private boolean cargado = false;
 
-    // Constructor que inicializa el servicio y el lector JSON
     public ServicioCargaJson(ServicioParque servicioParque) {
         this.servicioParque = servicioParque;
         this.objectMapper = new ObjectMapper();
     }
 
     public String cargarDesdeJson() {
+        // Guarda de idempotencia: rechaza la carga si ya se ejecutó antes.
         if (cargado) return "El escenario ya fue cargado anteriormente";
 
         try {
-            // Leer el archivo JSON desde resources/datos/
             ClassPathResource resource =
                     new ClassPathResource("datos/escenario.json");
             InputStream inputStream = resource.getInputStream();
@@ -34,55 +34,78 @@ public class ServicioCargaJson {
             TechParkUQ parque = servicioParque.getParque();
             int zonas = 0, atracciones = 0, operadores = 0, visitantes = 0;
 
-            // Cargar Zonas registradas en el archivo JSON
+            // ── Zonas: insertar solo si el ID no existe aún ───────────────────
             for (JsonNode z : root.get("zonas")) {
-                Zona zona = new Zona(
-                        z.get("id").asText(),
+                String id = z.get("id").asText();
+                boolean yaExiste = parque.getZonas().stream()
+                        .anyMatch(zona -> zona.getId().equals(id));
+                if (yaExiste) continue;
+
+                parque.agregarZona(new Zona(
+                        id,
                         z.get("nombre").asText(),
                         z.get("capacidadMaxima").asInt()
-                );
-                parque.agregarZona(zona);
+                ));
                 zonas++;
             }
 
-            // Cargar Atracciones y las asigna a su zona correspondiente
+            // ── Atracciones: insertar solo si el ID no existe aún ─────────────
             for (JsonNode a : root.get("atracciones")) {
-                Atraccion atraccion = new Atraccion(
-                        a.get("id").asText(),
-                        a.get("nombre").asText(),
-                        TipoAtraccion.valueOf(a.get("tipo").asText()),
-                        a.get("capacidadMaximaPorCiclo").asInt(),
-                        a.get("alturaMinima").asDouble(),
-                        a.get("edadMinima").asInt(),
-                        a.get("costoAdicional").asDouble()
-                );
+                String id = a.get("id").asText();
+                boolean yaExiste = parque.obtenerTodasLasAtracciones().stream()
+                        .anyMatch(atr -> atr.getId().equals(id));
+                if (yaExiste) continue;
+
                 parque.agregarAtraccionAZona(
-                        atraccion, a.get("idZona").asText()
+                        new Atraccion(
+                                id,
+                                a.get("nombre").asText(),
+                                TipoAtraccion.valueOf(a.get("tipo").asText()),
+                                a.get("capacidadMaximaPorCiclo").asInt(),
+                                a.get("alturaMinima").asDouble(),
+                                a.get("edadMinima").asInt(),
+                                a.get("costoAdicional").asDouble()
+                        ),
+                        a.get("idZona").asText()
                 );
                 atracciones++;
             }
 
-            // Cargar Operadores y los asigna a una zona del parque
+            // ── Operadores: insertar solo si el ID no existe aún ─────────────
             for (JsonNode op : root.get("operadores")) {
-                String resultado = servicioParque.crearOperador(
-                        op.get("id").asText(),
+                String id = op.get("id").asText();
+                Object[] empleados = parque.getEmpleados().obtenerTodos();
+                boolean yaExiste = false;
+                for (Object e : empleados) {
+                    if (e instanceof Operador existente
+                            && existente.getId().equals(id)) {
+                        yaExiste = true;
+                        break;
+                    }
+                }
+                if (yaExiste) continue;
+
+                servicioParque.crearOperador(
+                        id,
                         op.get("nombre").asText(),
                         op.get("edad").asInt(),
                         op.get("telefono").asText(),
                         op.get("email").asText(),
                         op.get("contrasena").asText()
                 );
-                servicioParque.asignarOperadorAZona(
-                        op.get("id").asText(),
-                        op.get("idZona").asText()
-                );
+                servicioParque.asignarOperadorAZona(id, op.get("idZona").asText());
                 operadores++;
             }
 
-            // Cargar Visitantes y les asigna un tipo de ticket
+            // ── Visitantes: insertar solo si el ID no existe aún ─────────────
             for (JsonNode v : root.get("visitantes")) {
+                String id = v.get("id").asText();
+                boolean yaExiste = parque.getVisitantes().stream()
+                        .anyMatch(vis -> vis.getId().equals(id));
+                if (yaExiste) continue;
+
                 Visitante visitante = new Visitante(
-                        v.get("id").asText(),
+                        id,
                         v.get("nombre").asText(),
                         v.get("edad").asInt(),
                         v.get("telefono").asText(),
@@ -91,15 +114,14 @@ public class ServicioCargaJson {
                         v.get("estatura").asDouble(),
                         v.get("saldoVirtual").asDouble()
                 );
-                servicioParque.venderTicket(
-                        visitante, v.get("tipoTicket").asText()
-                );
+                servicioParque.venderTicket(visitante, v.get("tipoTicket").asText());
                 visitantes++;
             }
 
-
-
-            // Cargar Senderos en el Grafo
+            // ── Grafo / senderos ──────────────────────────────────────────────
+            // agregarAtraccion en el grafo debe ignorar nodos ya registrados.
+            // conectarAtracciones sobreescribe el peso si la arista ya existe,
+            // lo cual es seguro (idempotente en valor).
             GrafoParque grafo = parque.getGrafoParque();
             for (Atraccion a : parque.obtenerTodasLasAtracciones()) {
                 grafo.agregarAtraccion(a);
@@ -112,44 +134,42 @@ public class ServicioCargaJson {
                 );
             }
 
-            // Asignar visitantes precargados a colas reales
-            List<Visitante> todosVisitantes   = parque.getVisitantes();
-            List<Atraccion> todasAtracciones  = parque.obtenerTodasLasAtracciones();
+            // ── Colas iniciales: solo agregar si el visitante no está en cola ─
+            List<Visitante> todosVisitantes  = parque.getVisitantes();
+            List<Atraccion> todasAtracciones = parque.obtenerTodasLasAtracciones();
             for (int i = 0; i < todosVisitantes.size() && i < todasAtracciones.size(); i++) {
-                Visitante v = todosVisitantes.get(i);
-                Atraccion a = todasAtracciones.get(i);
-                // Verificar que cumple requisitos mínimos antes de agregar
-                if (v.getEstatura() >= a.getAlturaMinima() && v.getEdad() >= a.getEdadMinima()) {
+                Visitante v    = todosVisitantes.get(i);
+                Atraccion a    = todasAtracciones.get(i);
+                boolean cumple = v.getEstatura() >= a.getAlturaMinima()
+                        && v.getEdad()     >= a.getEdadMinima();
+                // Verificar también que no esté ya en la cola para evitar duplicados
+                if (cumple && !a.getColaVirtual().estaEnCola(v)) {
                     servicioParque.validarAcceso(a.getId(), v.getId());
                 }
             }
 
-            // Marca el escenario como cargado correctamente
+            // Marcar como cargado solo al final, cuando todo fue exitoso.
+            // (el flag aparecía duplicado en la versión original — eliminado)
             cargado = true;
 
-            // Marca el escenario como cargado correctamente
-            cargado = true;
-            // Retorna un resumen de los datos cargados desde el JSON
             return String.format(
                     "Escenario cargado desde JSON: %d zonas, %d atracciones, " +
                             "%d operadores, %d visitantes",
                     zonas, atracciones, operadores, visitantes
             );
 
-            // Captura y retorna errores durante la carga del escenario
         } catch (Exception e) {
             return "Error al cargar el escenario: " + e.getMessage();
         }
     }
 
-    // Verifica si el escenario ya fue cargado previamente
+    /** Verifica si el escenario ya fue cargado previamente. */
     public boolean isCargado() {
         return cargado;
     }
 
-    // Reinicia el estado de carga del escenario
+    /** Reinicia el estado de carga del escenario (útil en tests). */
     public void resetear() {
         cargado = false;
     }
-
 }

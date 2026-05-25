@@ -39,8 +39,21 @@ const PRIORIDADES = [
 ]
 
 // ─── Mini mapa SVG del grafo (datos reales del backend) ──────────────────────
+// Parte el nombre completo en palabras y las agrupa en líneas de máx. 2 palabras
+// para que quepan bajo el nodo sin solaparse con nodos vecinos.
+function partirNombre(nombre = '') {
+    const palabras = nombre.trim().split(/\s+/)
+    const lineas = []
+    for (let i = 0; i < palabras.length; i += 2) {
+        lineas.push(palabras.slice(i, i + 2).join(' '))
+    }
+    return lineas
+}
+
 function GrafoMiniMapa({ nodos = [], aristas = [], rutaResaltada = [] }) {
-    const W = 600, H = 300
+    // Se amplía la altura del viewBox (300 → 340) para que las etiquetas
+    // multilinea debajo de los nodos inferiores no queden cortadas por el borde.
+    const W = 600, H = 340
 
     // El backend devuelve nodos con { id, nombre, x, y } desde grafo.getNodosParaMapa()
     // y aristas con { origen, destino, peso } desde grafo.getAristasParaMapa()
@@ -112,15 +125,23 @@ function GrafoMiniMapa({ nodos = [], aristas = [], rutaResaltada = [] }) {
                         <circle r={r + 3} fill="none" stroke={color} strokeWidth={1} strokeOpacity={0.35} />
                         <circle r={r} fill={resalt ? '#2a9d8f' : `${color}30`} stroke={resalt ? '#2a9d8f' : color} strokeWidth={1.5} />
                         <circle r={3} cx={r - 2} cy={-(r - 2)} fill={cEstado} />
+                        {/* Nombre completo: cada par de palabras en su propia línea */}
                         <text
-                            y={r + 14}
                             textAnchor="middle"
                             fontSize={9}
                             fill={resalt ? 'white' : 'rgba(255,255,255,0.6)'}
                             fontFamily="Syne, sans-serif"
                             fontWeight={resalt ? 700 : 400}
                         >
-                            {(nodo.nombre || '').split(' ').slice(0, 2).join(' ')}
+                            {partirNombre(nodo.nombre).map((linea, li) => (
+                                <tspan
+                                    key={li}
+                                    x={0}
+                                    dy={li === 0 ? r + 14 : 11}
+                                >
+                                    {linea}
+                                </tspan>
+                            ))}
                         </text>
                     </g>
                 )

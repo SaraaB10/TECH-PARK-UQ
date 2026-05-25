@@ -895,12 +895,19 @@ function TablaCierresClima({ climaticas, loading }) {
     }
 
     const cierres = (climaticas ?? [])
-        .map(c => ({
-            tipo:         c.tipo?.replace(/_/g, ' ') ?? '—',
-            atraccionesN: c.atraccionesAfectadas ?? 0,
-            activa:       c.activa ?? false,
-            id:           c.id,
-        }))
+        .map(c => {
+            // atraccionesAfectadas puede ser array de nombres o número
+            const afectadas = c.atraccionesAfectadas
+            const listaAfectadas = Array.isArray(afectadas) ? afectadas : []
+            const atraccionesN   = Array.isArray(afectadas) ? afectadas.length : (Number(afectadas) || 0)
+            return {
+                tipo:            c.tipo?.replace(/_/g, ' ') ?? '—',
+                atraccionesN,
+                listaAfectadas,
+                activa:          c.activa ?? false,
+                id:              c.id,
+            }
+        })
 
     return (
         <div className="glass rounded-2xl overflow-hidden">
@@ -934,9 +941,19 @@ function TablaCierresClima({ climaticas, loading }) {
                                 <tr key={c.id ?? i}>
                                     <td><span className="text-sm" style={{ color: 'var(--c-text)' }}>{c.tipo}</span></td>
                                     <td>
+                                        {c.listaAfectadas.length > 0 ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                {c.listaAfectadas.map((nombre, ni) => (
+                                                    <span key={ni} className="text-xs block" style={{ color: 'var(--c-dim)' }}>
+                                                        {nombre}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
                                             <span className="font-mono text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-muted)' }}>
                                                 {c.atraccionesN} atracción{c.atraccionesN !== 1 ? 'es' : ''}
                                             </span>
+                                        )}
                                     </td>
                                     <td>
                                         <Badge variant={c.activa ? 'pending' : 'resolved'} dot>

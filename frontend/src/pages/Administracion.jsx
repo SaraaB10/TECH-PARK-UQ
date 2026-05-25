@@ -691,7 +691,7 @@ function AlertasClimaticas({ alertas, setAlertas, onRefreshAtracciones }) {
 }
 
 // ─── Mantenimiento preventivo ─────────────────────────────────────────────────
-function Mantenimiento({ items, setItems, onRefreshAtracciones }) {
+function Mantenimiento({ items, setItems, onRefreshAtracciones, onRefreshAlertas }) {
     const [loading, setLoading] = useState(null)
 
     async function resolverAlerta(idAlerta) {
@@ -701,6 +701,8 @@ function Mantenimiento({ items, setItems, onRefreshAtracciones }) {
             setItems(prev => prev.map(m => m.id === idAlerta ? { ...m, resuelta: true } : m))
             // Refrescar atracciones porque el backend las reactiva
             await onRefreshAtracciones()
+            // Refrescar alertas para sincronizar el Resumen del sistema
+            if (onRefreshAlertas) await onRefreshAlertas()
         } catch (e) { console.error('Error resolviendo alerta:', e) }
         finally { setLoading(null) }
     }
@@ -774,7 +776,7 @@ const TIPO_ATRACCION_OPTIONS = [
     { value: 'FAMILIAR',        label: 'Familiar' },
 ]
 
-function GestionAtracciones({ atracciones, zonas, onRefresh }) {
+function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas }) {
     const [showForm,    setShowForm]    = useState(false)
     const [loading,     setLoading]     = useState(false)
     const [error,       setError]       = useState('')
@@ -833,6 +835,8 @@ function GestionAtracciones({ atracciones, zonas, onRefresh }) {
                 await atraccionService.cambiarEstado(a.id, editForm.estado)
             }
             await onRefresh()
+            // Refrescar alertas de mantenimiento para sincronizar el panel
+            if (onRefreshAlertas) await onRefreshAlertas()
             setEditando(null)
         } catch (e) { console.error('Error editando atracción:', e) }
         finally { setLoadingEdit(false) }
@@ -1154,6 +1158,7 @@ export default function Administracion() {
                                 atracciones={atraccionesCtx}
                                 zonas={zonas}
                                 onRefresh={refrescarAtracciones}
+                                onRefreshAlertas={refrescarAlertas}
                             />
                             <GestionZonas
                                 zonas={zonas}
@@ -1167,6 +1172,7 @@ export default function Administracion() {
                                 items={mantenimiento}
                                 setItems={setMantenimiento}
                                 onRefreshAtracciones={refrescarAtracciones}
+                                onRefreshAlertas={refrescarAlertas}
                             />
                         </div>
 
