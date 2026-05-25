@@ -7,7 +7,7 @@ public class TicketFamiliar extends Ticket {
     private double porcentajeDescuento;
 
     public TicketFamiliar(String id, double porcentajeDescuento) {
-        super(id, 50000, TipoTicket.FAMILIAR);
+        super(id, 70000, TipoTicket.FAMILIAR);
         this.porcentajeDescuento = porcentajeDescuento;
     }
 

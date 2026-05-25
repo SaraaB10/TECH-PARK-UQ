@@ -1,4 +1,4 @@
-// src/pages/Visitante.jsx  ─── REEMPLAZO COMPLETO
+// src/pages/Visitante.jsx
 import { useState } from 'react'
 import {
     User, Clock, Users, Ticket, Bell,
@@ -12,6 +12,7 @@ import ProgressBar from '@/components/ui/ProgressBar'
 import { Input, Select } from '@/components/ui/Input'
 import { visitanteService, atraccionService, alertaService } from '@/services/parqueService'
 import { useApp, COSTO_TICKET } from '@/context/AppContext'
+import { LogIn } from 'lucide-react'
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 const TICKETS = [
@@ -21,7 +22,7 @@ const TICKETS = [
         beneficios: ['Acceso a todas las zonas', 'Cola prioridad 2', 'Mapa del parque'],
     },
     {
-        tipo: 'FAMILIAR', backendKey: 'FAMILIAR', precio: 50000, prioridad: 2,
+        tipo: 'FAMILIAR', backendKey: 'FAMILIAR', precio: 70000, prioridad: 2,
         color: '#2a9d8f', icono: '👨‍👩‍👧‍👦', label: 'Familiar', popular: true,
         beneficios: ['Hasta 4 personas', 'Cola prioridad 2', '20% descuento en precio base', 'Zona kids incluida'],
     },
@@ -111,6 +112,62 @@ function HeroVisitante({ visitante, saldo, visitasTotal }) {
     )
 }
 
+// ─── Login de visitante ───────────────────────────────────────────────────────
+function LoginVisitante({ onLogin }) {
+    const { loginVisitante } = useApp()
+    const [form, setForm]     = useState({ email: '', contrasena: '' })
+    const [loading, setLoading] = useState(false)
+    const [error, setError]   = useState('')
+
+    const f = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }))
+
+    async function handleLogin() {
+        if (!form.email.trim() || !form.contrasena.trim()) {
+            setError('Email y contraseña son obligatorios'); return
+        }
+        setError(''); setLoading(true)
+        try {
+            const v = await loginVisitante(form.email.trim(), form.contrasena.trim())
+            onLogin(v)
+        } catch (err) {
+            const msg = err?.response?.data
+            setError(typeof msg === 'string' ? msg : 'Credenciales incorrectas o visitante no encontrado')
+        } finally { setLoading(false) }
+    }
+
+    return (
+        <div className="glass rounded-2xl overflow-hidden mb-4">
+            <div className="px-6 py-4 border-b flex items-center gap-3" style={{ borderColor: 'var(--c-border)' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                     style={{ background: 'rgba(69,123,157,0.15)', border: '0.5px solid rgba(69,123,157,0.25)' }}>
+                    <LogIn size={15} style={{ color: '#457b9d' }} />
+                </div>
+                <div>
+                    <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Iniciar sesión</h2>
+                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>¿Ya tienes cuenta? Accede con tu email y contraseña</p>
+                </div>
+            </div>
+            <div className="p-6">
+                {error && (
+                    <div className="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+                         style={{ background: 'rgba(230,57,70,0.08)', border: '0.5px solid rgba(230,57,70,0.2)', color: '#e63946' }}>
+                        <AlertTriangle size={14} /> {error}
+                    </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Input label="Email" type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={f('email')} />
+                    <Input label="Contraseña" type="password" placeholder="••••••••" value={form.contrasena} onChange={f('contrasena')} />
+                    <div className="flex items-end">
+                        <Button variant="primary" size="md" loading={loading} onClick={handleLogin} className="w-full justify-center">
+                            <LogIn size={14} /> Ingresar
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ─── Registro rápido ──────────────────────────────────────────────────────────
 function RegistroRapido({ onRegistrar }) {
     const [form, setForm] = useState({
@@ -129,15 +186,18 @@ function RegistroRapido({ onRegistrar }) {
 
     function validate() {
         const e = {}
-        if (form.telefono && form.telefono.length !== 10)
-            e.telefono = 'El teléfono debe tener exactamente 10 dígitos'
-        if (!form.nombre.trim())                           e.nombre       = 'Nombre requerido'
-        if (!form.edad || Number(form.edad) < 1)           e.edad         = 'Edad inválida'
-        if (!form.estatura || Number(form.estatura) < 50)  e.estatura     = 'Estatura inválida (mín. 50 cm)'
-        if (!form.email.trim())                            e.email        = 'Email requerido'
-        if (!form.contrasena.trim())                       e.contrasena   = 'Contraseña requerida'
-        if (form.saldoVirtual === '' || saldoNum < 0)      e.saldoVirtual = 'Saldo inválido'
-        if (saldoNum < costoTicket)
+        if (!form.nombre.trim())                             e.nombre       = 'El nombre es obligatorio'
+        if (!form.email.trim())                              e.email        = 'El email es obligatorio'
+        if (!form.contrasena.trim())                         e.contrasena   = 'La contraseña es obligatoria'
+        if (!form.edad || form.edad === '')                  e.edad         = 'La edad es obligatoria'
+        else if (Number(form.edad) < 1)                      e.edad         = 'La edad debe ser mayor a 0'
+        if (!form.estatura || form.estatura === '')          e.estatura     = 'La estatura es obligatoria'
+        else if (Number(form.estatura) < 0.5)                e.estatura     = 'Estatura inválida (mín. 0.50 m)'
+        if (!form.telefono || form.telefono.trim() === '')   e.telefono     = 'El teléfono es obligatorio'
+        else if (form.telefono.length !== 10)                e.telefono     = 'El teléfono debe tener exactamente 10 dígitos'
+        if (form.saldoVirtual === '' || form.saldoVirtual == null) e.saldoVirtual = 'El saldo es obligatorio'
+        else if (saldoNum < 0)                               e.saldoVirtual = 'El saldo no puede ser negativo'
+        else if (saldoNum < costoTicket)
             e.saldoVirtual = `Saldo insuficiente — ticket ${ticketInfo.label}: ${formatPeso(costoTicket)}`
         return e
     }
@@ -147,25 +207,20 @@ function RegistroRapido({ onRegistrar }) {
         if (Object.keys(e).length) { setErrors(e); return }
         setErrors({}); setLoading(true); setExito(null)
         try {
-            const res = await visitanteService.registrar({
+            await visitanteService.registrar({
                 nombre:       form.nombre.trim(),
                 edad:         Number(form.edad),
                 telefono:     form.telefono.trim() || '0000000000',
                 email:        form.email.trim(),
                 contrasena:   form.contrasena.trim(),
-                estatura:     Number(form.estatura) / 100,
+                estatura:     Number(form.estatura),
                 saldoVirtual: saldoNum,
                 tipoTicket:   ticketInfo.backendKey,
             })
-            const { mensaje, idVisitante, tipoTicket } = res.data
-            setExito(`${mensaje} — Saldo disponible: ${formatPeso(saldoTras)}`)
-            onRegistrar({
-                id:           idVisitante,
-                nombre:       form.nombre.trim(),
-                tipoTicket:   normalizarTipo(tipoTicket),
-                backendTipo:  ticketInfo.backendKey,
-                saldoInicial: saldoNum,
-            })
+            setExito(`¡Registro exitoso! Ya puedes iniciar sesión con tu email y contraseña.`)
+            setForm({ nombre: '', edad: '', telefono: '', email: '', contrasena: '', estatura: '', saldoVirtual: '', tipoTicket: 'GENERAL' })
+            // Notificar al padre para redirigir al tab de login
+            onRegistrar()
         } catch (err) {
             const msg = err?.response?.data || 'Error al registrar visitante'
             setErrors({ general: typeof msg === 'string' ? msg : 'Error al registrar' })
@@ -203,8 +258,8 @@ function RegistroRapido({ onRegistrar }) {
                     <Input label="Nombre completo" placeholder="Tu nombre" value={form.nombre} onChange={f('nombre')} error={errors.nombre} />
                     <Input label="Email" type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={f('email')} error={errors.email} />
                     <Input label="Contraseña" type="password" placeholder="••••••••" value={form.contrasena} onChange={f('contrasena')} error={errors.contrasena} />
-                    <Input label="Edad" type="number" placeholder="Ej: 24" value={form.edad} onChange={f('edad')} error={errors.edad} />
-                    <Input label="Estatura (cm)" type="number" placeholder="Ej: 175" value={form.estatura} onChange={f('estatura')} error={errors.estatura} />
+                    <Input label="Edad" type="number" min="1" placeholder="Ej: 24" value={form.edad} onChange={f('edad')} error={errors.edad} />
+                    <Input label="Estatura (m)" type="number" min="0" step="0.01" placeholder="Ej: 1.75" value={form.estatura} onChange={f('estatura')} error={errors.estatura} />
                     <Input
                         label="Teléfono"
                         type="tel"
@@ -218,6 +273,7 @@ function RegistroRapido({ onRegistrar }) {
                         <Input
                             label="Saldo virtual ($COP)"
                             type="number"
+                            min="0"
                             placeholder={`Mín. ${formatPeso(costoTicket)}`}
                             value={form.saldoVirtual}
                             onChange={f('saldoVirtual')}
@@ -244,7 +300,7 @@ function RegistroRapido({ onRegistrar }) {
                     </div>
                     <Select label="Tipo de ticket" value={form.tipoTicket} onChange={f('tipoTicket')}>
                         <option value="GENERAL">General — {formatPeso(50000)} — Prioridad 2</option>
-                        <option value="FAMILIAR">Familiar — {formatPeso(50000)} — Prioridad 2 (20% desc.)</option>
+                        <option value="FAMILIAR">Familiar — {formatPeso(70000)} — Prioridad 2 (20% desc.)</option>
                         <option value="FASTPASS">FastPass — {formatPeso(120000)} — Prioridad 1</option>
                     </Select>
                     <div className="flex items-end">
@@ -260,7 +316,8 @@ function RegistroRapido({ onRegistrar }) {
 
 // ─── Sección de tickets ───────────────────────────────────────────────────────
 function SeccionTickets({ ticketActual }) {
-    const tipoUI = normalizarTipo(ticketActual)
+    // Solo marcar activo si hay sesión (ticketActual !== null)
+    const tipoUI = ticketActual != null ? normalizarTipo(ticketActual) : null
     return (
         <div className="mb-8">
             <div className="mb-5">
@@ -716,15 +773,19 @@ export default function Visitante() {
         visitante, saldo, historial, favoritos, notifs,
         atracciones,
         setFavoritos, setNotifs,
-        registrarVisitante,
         refrescarAtracciones,
     } = useApp()
 
-    const [tab,   setTab]   = useState('cola')
-    const [error, setError] = useState(null)
+    const [tab,     setTab]     = useState('cola')
+    const [error,   setError]   = useState(null)
+    const [authTab, setAuthTab] = useState('login')
 
-    function handleRegistrar(data) {
-        registrarVisitante(data)
+    // Tras registro exitoso: ir a login para que el usuario inicie sesión
+    function handleRegistrar() {
+        setAuthTab('login')
+    }
+
+    function handleLogin() {
         refrescarAtracciones()
     }
 
@@ -744,73 +805,103 @@ export default function Visitante() {
                 </div>
             )}
 
+            {/* Bienvenida: SOLO visible cuando hay visitante activo */}
             {visitante && <HeroVisitante visitante={visitante} saldo={saldo} visitasTotal={historial.length} />}
 
-            <RegistroRapido onRegistrar={handleRegistrar} />
-
-            <SeccionTickets ticketActual={visitante?.tipoTicket} />
-
-            <div className="h-px mb-8" style={{ background: 'var(--c-border)' }} />
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="xl:col-span-2">
-                    <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit"
+            {/* Panel de autenticación: SOLO visible cuando NO hay visitante activo */}
+            {!visitante && (
+                <div className="mb-8">
+                    <div className="flex gap-1 p-1 rounded-xl mb-4 w-fit"
                          style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--c-border)' }}>
-                        {TABS.map(({ id, label, icon: Icon }) => (
-                            <button key={id} onClick={() => setTab(id)}
+                        {[
+                            { id: 'login',    label: 'Iniciar sesión', icon: LogIn },
+                            { id: 'registro', label: 'Registrarse',    icon: User  },
+                        ].map(({ id, label, icon: Icon }) => (
+                            <button key={id} onClick={() => setAuthTab(id)}
                                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all"
                                     style={{
-                                        background: tab === id ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                        color: tab === id ? 'var(--c-text)' : 'var(--c-muted)',
+                                        background: authTab === id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                        color: authTab === id ? 'var(--c-text)' : 'var(--c-muted)',
                                         fontFamily: 'var(--font-display)',
-                                        fontWeight: tab === id ? 600 : 400,
-                                        border: tab === id ? '0.5px solid rgba(255,255,255,0.1)' : '0.5px solid transparent',
+                                        fontWeight: authTab === id ? 600 : 400,
+                                        border: authTab === id ? '0.5px solid rgba(255,255,255,0.1)' : '0.5px solid transparent',
                                     }}>
                                 <Icon size={14} />{label}
                             </button>
                         ))}
                     </div>
 
-                    {tab === 'cola' && (
-                        <ColaVirtual
-                            visitanteId={visitante?.id}
-                            visitanteTipoTicket={visitante?.tipoTicket}
-                            atracciones={atracciones}
-                        />
-                    )}
-                    {tab === 'favoritos' && (
-                        <Favoritos favoritos={favoritos} setFavoritos={setFavoritos}
-                                   visitanteId={visitante?.id} atracciones={atracciones} />
-                    )}
-                    {tab === 'historial' && (
-                        <Historial historial={historial} visitanteNombre={visitante?.nombre} />
-                    )}
+                    {authTab === 'login'    && <LoginVisitante onLogin={handleLogin} />}
+                    {authTab === 'registro' && <RegistroRapido onRegistrar={handleRegistrar} />}
                 </div>
+            )}
 
-                <div className="xl:col-span-1">
-                    <div className="sticky top-24">
-                        <Notificaciones notifs={notifs} setNotifs={setNotifs} />
-                        <div className="glass rounded-2xl p-5 mt-5">
-                            <h3 className="text-sm font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Mis estadísticas</h3>
-                            <div className="space-y-4">
-                                {[
-                                    { label: 'Atracciones en historial', value: historial.length, max: Math.max(15, historial.length), color: '#6a4c93' },
-                                    { label: 'Favoritos guardados',       value: favoritos.length, max: Math.max(10, favoritos.length), color: '#e63946' },
-                                    { label: 'Notificaciones leídas',    value: notifs.filter(n => n._leida || n.leida).length, max: Math.max(1, notifs.length), color: '#2a9d8f' },
-                                ].map(({ label, value, max, color }) => (
-                                    <div key={label}>
-                                        <div className="flex justify-between text-xs mb-1.5">
-                                            <span style={{ color: 'var(--c-muted)' }}>{label}</span>
-                                            <span className="font-mono font-bold" style={{ fontFamily: 'var(--font-mono)', color }}>{value}</span>
+            <SeccionTickets ticketActual={visitante ? visitante.tipoTicket : null} />
+
+            <div className="h-px mb-8" style={{ background: 'var(--c-border)' }} />
+
+            {/* Tabs de cola/favoritos/historial: solo con sesión activa */}
+            {visitante && (
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <div className="xl:col-span-2">
+                        <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit"
+                             style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--c-border)' }}>
+                            {TABS.map(({ id, label, icon: Icon }) => (
+                                <button key={id} onClick={() => setTab(id)}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all"
+                                        style={{
+                                            background: tab === id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                            color: tab === id ? 'var(--c-text)' : 'var(--c-muted)',
+                                            fontFamily: 'var(--font-display)',
+                                            fontWeight: tab === id ? 600 : 400,
+                                            border: tab === id ? '0.5px solid rgba(255,255,255,0.1)' : '0.5px solid transparent',
+                                        }}>
+                                    <Icon size={14} />{label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {tab === 'cola' && (
+                            <ColaVirtual
+                                visitanteId={visitante?.id}
+                                visitanteTipoTicket={visitante?.tipoTicket}
+                                atracciones={atracciones}
+                            />
+                        )}
+                        {tab === 'favoritos' && (
+                            <Favoritos favoritos={favoritos} setFavoritos={setFavoritos}
+                                       visitanteId={visitante?.id} atracciones={atracciones} />
+                        )}
+                        {tab === 'historial' && (
+                            <Historial historial={historial} visitanteNombre={visitante?.nombre} />
+                        )}
+                    </div>
+
+                    <div className="xl:col-span-1">
+                        <div className="sticky top-24">
+                            <Notificaciones notifs={notifs} setNotifs={setNotifs} />
+                            <div className="glass rounded-2xl p-5 mt-5">
+                                <h3 className="text-sm font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Mis estadísticas</h3>
+                                <div className="space-y-4">
+                                    {[
+                                        { label: 'Atracciones en historial', value: historial.length, max: Math.max(15, historial.length), color: '#6a4c93' },
+                                        { label: 'Favoritos guardados',       value: favoritos.length, max: Math.max(10, favoritos.length), color: '#e63946' },
+                                        { label: 'Notificaciones leídas',    value: notifs.filter(n => n._leida || n.leida).length, max: Math.max(1, notifs.length), color: '#2a9d8f' },
+                                    ].map(({ label, value, max, color }) => (
+                                        <div key={label}>
+                                            <div className="flex justify-between text-xs mb-1.5">
+                                                <span style={{ color: 'var(--c-muted)' }}>{label}</span>
+                                                <span className="font-mono font-bold" style={{ fontFamily: 'var(--font-mono)', color }}>{value}</span>
+                                            </div>
+                                            <ProgressBar value={value} max={max} color={color} />
                                         </div>
-                                        <ProgressBar value={value} max={max} color={color} />
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     )
 }

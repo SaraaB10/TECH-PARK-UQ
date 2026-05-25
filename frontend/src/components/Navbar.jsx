@@ -28,7 +28,9 @@ export default function Navbar() {
 
     useEffect(() => { setOpen(false) }, [location])
 
-    const navBg = 'bg-transparent'
+    const navBg = scrolled
+        ? 'glass-dark'
+        : 'glass-dark'
 
     return (
         <>
@@ -88,12 +90,6 @@ export default function Navbar() {
                                 >
                                     {({ isActive }) => (
                                         <>
-                                            {isActive && (
-                                                <span
-                                                    className="absolute inset-0 rounded-lg"
-                                                    style={{ background: 'rgba(255,255,255,0.08)', border: '0.5px solid rgba(255,255,255,0.1)' }}
-                                                />
-                                            )}
                                             {isActive && (
                                                 <span
                                                     className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full"

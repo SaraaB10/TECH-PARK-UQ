@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import techpark_uq.servicio.ServicioParque;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -18,6 +19,29 @@ public class VisitanteController {
     // Constructor
     public VisitanteController(ServicioParque servicioParque) {
         this.servicioParque = servicioParque;
+    }
+
+    // GET: lista todos los visitantes registrados
+    @GetMapping
+    public ResponseEntity<?> listarTodos() {
+        List<Map<String, Object>> resultado = servicioParque.getParque().getVisitantes()
+                .stream()
+                .map(v -> {
+                    String tipoTicket = "GENERAL";
+                    if (v.getTicket() != null) {
+                        tipoTicket = v.getTicket().getTipo().name();
+                    }
+                    return Map.<String, Object>of(
+                            "id",          v.getId(),
+                            "nombre",      v.getNombre(),
+                            "email",       v.getEmail(),
+                            "edad",        v.getEdad(),
+                            "tipoTicket",  tipoTicket,
+                            "saldo",       v.getSaldoVirtual()
+                    );
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(resultado);
     }
 
     // POST: registra un nuevo visitante y genera su ticket
@@ -48,6 +72,36 @@ public class VisitanteController {
                 "idVisitante", v.getId(),
                 "idTicket", ticket.getId(),
                 "tipoTicket", ticket.getTipo()
+        ));
+    }
+
+    // POST: login de visitante por email y contraseña
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, Object> body) {
+        String email     = (String) body.get("email");
+        String contrasena = (String) body.get("contrasena");
+
+        if (email == null || contrasena == null)
+            return ResponseEntity.badRequest().body("Email y contraseña son obligatorios");
+
+        Visitante visitante = servicioParque.getParque().getVisitantes().stream()
+                .filter(v -> email.equals(v.getEmail()) && contrasena.equals(v.getContrasena()))
+                .findFirst().orElse(null);
+
+        if (visitante == null)
+            return ResponseEntity.status(401).body("Credenciales incorrectas");
+
+        String tipoTicket = "GENERAL";
+        if (visitante.getTicket() != null) {
+            tipoTicket = visitante.getTicket().getTipo().name();
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "idVisitante", visitante.getId(),
+                "nombre",      visitante.getNombre(),
+                "email",       visitante.getEmail(),
+                "tipoTicket",  tipoTicket,
+                "saldo",       visitante.getSaldoVirtual()
         ));
     }
 

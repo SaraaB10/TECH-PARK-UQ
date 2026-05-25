@@ -1,19 +1,20 @@
-// src/pages/Administracion.jsx  ─── REEMPLAZO COMPLETO
+// src/pages/Administracion.jsx
 import React, { useState, useCallback } from 'react'
 import {
     Users, MapPin, AlertTriangle,
     Plus, Trash2, UserCheck, Cloud, CloudLightning,
     CloudRain, CheckCircle, XCircle, Wrench, Shield,
-    TrendingUp, RefreshCw,
+    TrendingUp, RefreshCw, Zap, Eye,
 } from 'lucide-react'
 import { StatCard } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { Input } from '@/components/ui/Input'
+import { Input, Select } from '@/components/ui/Input'
 import {
     operadorService,
     zonaService,
+    atraccionService,
     climaService,
     alertaService,
 } from '@/services/parqueService'
@@ -83,7 +84,7 @@ function adaptarAlertaMantenimiento(a) {
 }
 
 // ─── Hero compacto ────────────────────────────────────────────────────────────
-function AdminHero({ operadores, zonas, alertasActivas }) {
+function AdminHero({ operadores, zonas, alertasActivas, atracciones, visitantes }) {
     return (
         <div
             className="relative overflow-hidden rounded-3xl mb-8"
@@ -132,6 +133,20 @@ function AdminHero({ operadores, zonas, alertasActivas }) {
                         </span>
                         <span className="text-xs" style={{ color: 'var(--c-muted)' }}>Zonas</span>
                     </div>
+                    <div className="glass rounded-xl px-4 py-3 flex items-center gap-2">
+                        <Zap size={14} style={{ color: '#e9c46a' }} />
+                        <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>
+                            {atracciones.length}
+                        </span>
+                        <span className="text-xs" style={{ color: 'var(--c-muted)' }}>Atracciones</span>
+                    </div>
+                    <div className="glass rounded-xl px-4 py-3 flex items-center gap-2">
+                        <UserCheck size={14} style={{ color: '#6a4c93' }} />
+                        <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>
+                            {visitantes.length}
+                        </span>
+                        <span className="text-xs" style={{ color: 'var(--c-muted)' }}>Visitantes</span>
+                    </div>
                     {alertasActivas > 0 && (
                         <div className="rounded-xl px-4 py-3 flex items-center gap-2"
                              style={{ background: 'rgba(230,57,70,0.1)', border: '0.5px solid rgba(230,57,70,0.25)' }}>
@@ -169,17 +184,51 @@ function MetricasRapidas({ operadores, zonas, mantenimiento }) {
 }
 
 // ─── Gestión de operadores ────────────────────────────────────────────────────
-function GestionOperadores({ operadores, setOperadores, zonas, onRefresh }) {
+function GestionOperadores({ operadores, operadoresRaw = [], setOperadores, zonas, onRefresh }) {
     const [showForm,  setShowForm]  = useState(false)
     const [loading,   setLoading]   = useState(false)
     const [error,     setError]     = useState('')
     const [asignando, setAsignando] = useState(null)
     const [zonaSelec, setZonaSelec] = useState('')
+    const [editando,  setEditando]  = useState(null)  // id del operador en edición
+    const [editForm,  setEditForm]  = useState({})
+    const [loadingEdit,    setLoadingEdit]    = useState(false)
+    const [loadingTelefono, setLoadingTelefono] = useState(false)
+    const [editError,   setEditError]   = useState('')
     const [form, setForm] = useState({ id: '', nombre: '', edad: '', telefono: '', email: '', contrasena: '' })
 
+    // ── Validaciones de creación ──
+    function validarCrear() {
+        if (!form.id.trim())         return 'El ID del operador es obligatorio.'
+        if (!form.nombre.trim())     return 'El nombre es obligatorio.'
+        if (!form.email.trim())      return 'El correo electrónico es obligatorio.'
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return 'El correo no tiene un formato válido.'
+        if (!form.edad || form.edad === '') return 'La edad es obligatoria.'
+        if (isNaN(Number(form.edad)) || Number(form.edad) < 0) return 'La edad debe ser un número positivo.'
+        if (Number(form.edad) < 18)  return 'El operador debe ser mayor de 18 años.'
+        if (!form.telefono || form.telefono.trim() === '') return 'El teléfono es obligatorio.'
+        if (form.telefono.length !== 10) return 'El teléfono debe tener exactamente 10 dígitos.'
+        if (!form.contrasena.trim()) return 'La contraseña es obligatoria.'
+        if (form.contrasena.length < 4) return 'La contraseña debe tener al menos 4 caracteres.'
+        return ''
+    }
+
+    // ── Validaciones de edición ──
+    function validarEditar() {
+        if (!editForm.nombre?.trim())  return 'El nombre es obligatorio.'
+        if (!editForm.email?.trim())   return 'El correo electrónico es obligatorio.'
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) return 'El correo no tiene un formato válido.'
+        if (!editForm.edad || editForm.edad === '') return 'La edad es obligatoria.'
+        if (isNaN(Number(editForm.edad)) || Number(editForm.edad) < 18) return 'La edad debe ser al menos 18 años.'
+        // Teléfono: solo validar formato si el usuario ingresó algo
+        if (editForm.telefono && editForm.telefono.trim() !== '' && editForm.telefono.length !== 10)
+            return 'El teléfono debe tener exactamente 10 dígitos.'
+        return ''
+    }
+
     async function handleCrear() {
-        if (!form.id || !form.nombre || !form.email) { setError('ID, nombre y correo son obligatorios.'); return }
-        if (form.telefono && form.telefono.length !== 10) { setError('El teléfono debe tener exactamente 10 dígitos.'); return }
+        const err = validarCrear()
+        if (err) { setError(err); return }
         setError(''); setLoading(true)
         try {
             await operadorService.create({ id: form.id, nombre: form.nombre, edad: form.edad ? parseInt(form.edad, 10) : null, telefono: form.telefono, email: form.email, contrasena: form.contrasena })
@@ -192,11 +241,62 @@ function GestionOperadores({ operadores, setOperadores, zonas, onRefresh }) {
     }
 
     async function handleEliminar(id) {
+        if (!window.confirm('¿Eliminar este operador?')) return
         try {
             await operadorService.delete(id)
             setOperadores(prev => prev.filter(o => o.id !== id))
             await onRefresh()
         } catch (e) { console.error('Error eliminando operador:', e) }
+    }
+
+    async function iniciarEdicion(op) {
+        setEditError('')
+        setAsignando(null)
+        // Buscar el dato crudo del contexto — única fuente que incluye telefono
+        // (el listado adaptado no lo tiene porque GET /api/operadores no lo devuelve,
+        //  pero GET /api/operadores/{id} sí; si el contexto ya lo cargó, lo usamos directo)
+        const raw = operadoresRaw.find(r => String(r.id) === String(op.id))
+        const telefono = raw?.telefono || op.telefono || ''
+        setEditForm({ nombre: op.nombre, email: op.email, edad: op.edad || '', telefono })
+        setEditando(op.id)
+        // Si el contexto no tenía telefono, obtenerlo del endpoint individual
+        if (!telefono) {
+            setLoadingTelefono(true)
+            try {
+                const res = await fetch(`/api/operadores/${op.id}`)
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data?.telefono) setEditForm(prev => ({ ...prev, telefono: data.telefono }))
+                }
+            } catch { /* queda editable */ }
+            finally { setLoadingTelefono(false) }
+        }
+    }
+
+    async function handleGuardarEdicion(op) {
+        const err = validarEditar()
+        if (err) { setEditError(err); return }
+        setEditError(''); setLoadingEdit(true)
+        try {
+            // El backend no expone PUT /operadores/{id}; recreamos con delete + create
+            await operadorService.delete(op.id)
+            await operadorService.create({
+                id:        op.id,
+                nombre:    editForm.nombre.trim(),
+                edad:      editForm.edad ? parseInt(editForm.edad, 10) : null,
+                telefono:  editForm.telefono || '',
+                email:     editForm.email.trim(),
+                contrasena: op.contrasena || '1234',
+            })
+            // Re-asignar zona si tenía una
+            if (op.activo && op.zonaId) {
+                try { await operadorService.asignarZona(op.id, op.zonaId) } catch { /* silencioso */ }
+            }
+            await onRefresh()
+            setEditando(null)
+        } catch (e) {
+            setEditError(e?.response?.data || 'Error al actualizar el operador.')
+        } finally { setLoadingEdit(false) }
     }
 
     async function handleAsignar(operadorId) {
@@ -234,8 +334,8 @@ function GestionOperadores({ operadores, setOperadores, zonas, onRefresh }) {
                         <Input label="ID del operador" placeholder="Ej: OP-004" value={form.id} onChange={e => setForm(p => ({ ...p, id: e.target.value }))} />
                         <Input label="Nombre completo" placeholder="Ej: Carlos Mendoza" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
                         <Input label="Correo electrónico" type="email" placeholder="nombre@uq.edu.co" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
-                        <Input label="Edad" type="number" placeholder="Ej: 28" value={form.edad} onChange={e => setForm(p => ({ ...p, edad: e.target.value }))} />
-                        <Input label="Teléfono" type="tel" placeholder="Ej: 3101234567" maxLength={10} value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
+                        <Input label="Edad (mín. 18)" type="number" min="18" placeholder="Ej: 28" value={form.edad} onChange={e => setForm(p => ({ ...p, edad: e.target.value }))} />
+                        <Input label="Teléfono (10 dígitos)" type="tel" placeholder="Ej: 3101234567" maxLength={10} value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
                         <Input label="Contraseña" type="password" placeholder="••••••" value={form.contrasena} onChange={e => setForm(p => ({ ...p, contrasena: e.target.value }))} />
                         <div className="flex items-end">
                             <Button variant="success" size="md" loading={loading} onClick={handleCrear} className="w-full justify-center">
@@ -280,6 +380,12 @@ function GestionOperadores({ operadores, setOperadores, zonas, onRefresh }) {
                                     <td><Badge variant={op.activo ? 'active' : 'closed'} dot>{op.activo ? 'Activo' : 'Sin zona'}</Badge></td>
                                     <td>
                                         <div className="flex items-center gap-2">
+                                            <button title="Editar operador"
+                                                    className="text-xs px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                                                    style={{ background: 'rgba(233,196,106,0.12)', color: '#e9c46a', border: '0.5px solid rgba(233,196,106,0.25)' }}
+                                                    onClick={() => editando === op.id ? setEditando(null) : iniciarEdicion(op)}>
+                                                ✏️
+                                            </button>
                                             <button className="text-xs px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                                                     style={{ background: 'rgba(69,123,157,0.12)', color: '#457b9d', border: '0.5px solid rgba(69,123,157,0.25)' }}
                                                     onClick={() => setAsignando(asignando === op.id ? null : op.id)}>
@@ -293,6 +399,25 @@ function GestionOperadores({ operadores, setOperadores, zonas, onRefresh }) {
                                         </div>
                                     </td>
                                 </tr>
+                                {/* ── Fila de edición inline ── */}
+                                {editando === op.id && (
+                                    <tr key={`edit-${op.id}`}>
+                                        <td colSpan={5} style={{ background: 'rgba(233,196,106,0.04)', padding: '14px 16px', borderBottom: '0.5px solid rgba(233,196,106,0.2)' }}>
+                                            {editError && <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.2)' }}>{editError}</p>}
+                                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                                <Input label="Nombre" value={editForm.nombre} onChange={e => setEditForm(p => ({ ...p, nombre: e.target.value }))} />
+                                                <Input label="Correo" type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
+                                                <Input label="Edad" type="number" min="18" value={editForm.edad} onChange={e => setEditForm(p => ({ ...p, edad: e.target.value }))} />
+                                                <Input label="Teléfono" type="tel" placeholder={loadingTelefono ? 'Cargando…' : 'Ej: 3101234567'} maxLength={10} value={editForm.telefono} onChange={e => setEditForm(p => ({ ...p, telefono: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
+                                            </div>
+                                            <div className="flex gap-2 mt-3">
+                                                <Button variant="success" size="sm" loading={loadingEdit} onClick={() => handleGuardarEdicion(op)}><CheckCircle size={12} /> Guardar cambios</Button>
+                                                <Button variant="ghost" size="sm" onClick={() => { setEditando(null); setEditError('') }}>Cancelar</Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                                {/* ── Fila de asignación de zona ── */}
                                 {asignando === op.id && (
                                     <tr key={`assign-${op.id}`}>
                                         <td colSpan={5} style={{ background: 'rgba(69,123,157,0.05)', padding: '12px 16px' }}>
@@ -320,13 +445,20 @@ function GestionOperadores({ operadores, setOperadores, zonas, onRefresh }) {
 
 // ─── Gestión de zonas ─────────────────────────────────────────────────────────
 function GestionZonas({ zonas, onRefresh }) {
-    const [showForm, setShowForm] = useState(false)
-    const [form, setForm]         = useState({ id: '', nombre: '', capacidadMaxima: '' })
-    const [loading, setLoading]   = useState(false)
-    const [error, setError]       = useState('')
+    const [showForm,   setShowForm]   = useState(false)
+    const [form,       setForm]       = useState({ id: '', nombre: '', capacidadMaxima: '' })
+    const [loading,    setLoading]    = useState(false)
+    const [error,      setError]      = useState('')
+    const [editando,   setEditando]   = useState(null)
+    const [editForm,   setEditForm]   = useState({})
+    const [loadingEdit, setLoadingEdit] = useState(false)
+    const [loadingDel,  setLoadingDel]  = useState(null)
 
     async function handleCrear() {
-        if (!form.id || !form.nombre || !form.capacidadMaxima) { setError('ID, nombre y capacidad son obligatorios.'); return }
+        if (!form.id.trim())             { setError('El ID de la zona es obligatorio.'); return }
+        if (!form.nombre.trim())          { setError('El nombre de la zona es obligatorio.'); return }
+        if (!form.capacidadMaxima)        { setError('La capacidad máxima es obligatoria.'); return }
+        if (Number(form.capacidadMaxima) < 0) { setError('La capacidad debe ser un número positivo.'); return }
         setError(''); setLoading(true)
         try {
             await zonaService.create({ id: form.id, nombre: form.nombre, capacidadMaxima: parseInt(form.capacidadMaxima, 10) })
@@ -336,6 +468,35 @@ function GestionZonas({ zonas, onRefresh }) {
         } catch (e) {
             setError(e?.response?.data || 'Error al crear la zona.')
         } finally { setLoading(false) }
+    }
+
+    function iniciarEdicion(zona) {
+        setEditando(zona.id)
+        setEditForm({ nombre: zona.nombre, capacidadMaxima: zona.capacidadMaxima })
+    }
+
+    async function handleGuardarEdicion(zona) {
+        if (!editForm.nombre?.trim()) { alert('El nombre de la zona es obligatorio.'); return }
+        if (!editForm.capacidadMaxima) { alert('La capacidad es obligatoria.'); return }
+        if (Number(editForm.capacidadMaxima) < 0) { alert('La capacidad debe ser un número positivo.'); return }
+        setLoadingEdit(true)
+        try {
+            await zonaService.delete(zona.id)
+            await zonaService.create({ id: zona.id, nombre: editForm.nombre, capacidadMaxima: parseInt(editForm.capacidadMaxima, 10) })
+            await onRefresh()
+            setEditando(null)
+        } catch (e) { console.error('Error editando zona:', e) }
+        finally { setLoadingEdit(false) }
+    }
+
+    async function handleEliminarZona(id) {
+        if (!window.confirm('¿Eliminar esta zona? Se perderán sus atracciones asociadas.')) return
+        setLoadingDel(id)
+        try {
+            await zonaService.delete(id)
+            await onRefresh()
+        } catch (e) { console.error('Error eliminando zona:', e) }
+        finally { setLoadingDel(null) }
     }
 
     return (
@@ -359,7 +520,7 @@ function GestionZonas({ zonas, onRefresh }) {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <Input label="ID de la zona" placeholder="Ej: ZONA-04" value={form.id} onChange={e => setForm(p => ({ ...p, id: e.target.value }))} />
                         <Input label="Nombre de la zona" placeholder="Ej: Zona Virtual" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
-                        <Input label="Capacidad máxima" type="number" placeholder="Ej: 500" value={form.capacidadMaxima} onChange={e => setForm(p => ({ ...p, capacidadMaxima: e.target.value }))} />
+                        <Input label="Capacidad máxima" type="number" min="0" placeholder="Ej: 500" value={form.capacidadMaxima} onChange={e => setForm(p => ({ ...p, capacidadMaxima: e.target.value }))} />
                         <div className="flex items-end">
                             <Button variant="success" size="md" loading={loading} onClick={handleCrear} className="w-full justify-center"><CheckCircle size={14} /> Crear zona</Button>
                         </div>
@@ -374,35 +535,63 @@ function GestionZonas({ zonas, onRefresh }) {
                     const act      = zona.visitantesActuales || 0
                     const pct      = Math.round((act / cap) * 100)
                     const saturada = zona.estaLlena || pct >= 80
+                    const enEdicion = editando === zona.id
                     return (
                         <div key={zona.id} className="rounded-2xl p-4 relative overflow-hidden group"
                              style={{ background: 'rgba(255,255,255,0.03)', border: `0.5px solid ${zona.color}30`, borderTop: `2px solid ${zona.color}` }}>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl" style={{ background: `${zona.color}08` }} />
                             <div className="relative z-10">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xl">{zona.icono}</span>
-                                        <div>
-                                            <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>{zona.nombre}</h3>
-                                            <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Cap. {cap.toLocaleString('es-CO')}</p>
+                                {enEdicion ? (
+                                    <div className="space-y-2">
+                                        <Input label="Nombre" value={editForm.nombre} onChange={e => setEditForm(p => ({ ...p, nombre: e.target.value }))} />
+                                        <Input label="Capacidad" type="number" min="0" value={editForm.capacidadMaxima} onChange={e => setEditForm(p => ({ ...p, capacidadMaxima: e.target.value }))} />
+                                        <div className="flex gap-2 mt-2">
+                                            <Button variant="success" size="sm" loading={loadingEdit} onClick={() => handleGuardarEdicion(zona)}><CheckCircle size={12} /> Guardar</Button>
+                                            <Button variant="ghost" size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        {saturada && <Badge variant="pending" dot>Saturada</Badge>}
-                                        <Badge variant={saturada ? 'closed' : 'active'} dot>{saturada ? 'Llena' : 'Disponible'}</Badge>
-                                    </div>
-                                </div>
-                                <div className="mb-1"><ProgressBar value={act} max={cap} color={saturada ? '#e63946' : zona.color} /></div>
-                                <div className="flex justify-between text-xs mb-3" style={{ color: 'var(--c-muted)' }}>
-                                    <span>{act} visitantes</span>
-                                    <span className="font-mono" style={{ fontFamily: 'var(--font-mono)', color: saturada ? '#e63946' : zona.color }}>{pct}%</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs" style={{ color: 'var(--c-muted)' }}>
-                                        <span className="font-semibold" style={{ color: 'var(--c-text)' }}>{zona.cantidadAtracciones}</span>{' '}atracciones
-                                    </span>
-                                    <span className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{zona.id}</span>
-                                </div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xl">{zona.icono}</span>
+                                                <div>
+                                                    <h3 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>{zona.nombre}</h3>
+                                                    <p className="text-xs" style={{ color: 'var(--c-muted)' }}>Cap. {cap.toLocaleString('es-CO')}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                {saturada && <Badge variant="pending" dot>Saturada</Badge>}
+                                                <Badge variant={saturada ? 'closed' : 'active'} dot>{saturada ? 'Llena' : 'Disponible'}</Badge>
+                                            </div>
+                                        </div>
+                                        <div className="mb-1"><ProgressBar value={act} max={cap} color={saturada ? '#e63946' : zona.color} /></div>
+                                        <div className="flex justify-between text-xs mb-3" style={{ color: 'var(--c-muted)' }}>
+                                            <span>{act} visitantes</span>
+                                            <span className="font-mono" style={{ fontFamily: 'var(--font-mono)', color: saturada ? '#e63946' : zona.color }}>{pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs" style={{ color: 'var(--c-muted)' }}>
+                                                <span className="font-semibold" style={{ color: 'var(--c-text)' }}>{zona.cantidadAtracciones}</span>{' '}atracciones
+                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                                <button title="Editar zona"
+                                                        className="text-xs px-2 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                                                        style={{ background: 'rgba(69,123,157,0.12)', color: '#457b9d', border: '0.5px solid rgba(69,123,157,0.25)' }}
+                                                        onClick={() => iniciarEdicion(zona)}>
+                                                    ✏️
+                                                </button>
+                                                <button title="Eliminar zona"
+                                                        className="text-xs px-2 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                                                        style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.2)' }}
+                                                        onClick={() => handleEliminarZona(zona.id)}
+                                                        disabled={loadingDel === zona.id}>
+                                                    {loadingDel === zona.id ? '…' : <Trash2 size={11} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )
@@ -577,13 +766,325 @@ function Mantenimiento({ items, setItems, onRefreshAtracciones }) {
     )
 }
 
+// ─── Gestión de atracciones ───────────────────────────────────────────────────
+const TIPO_ATRACCION_OPTIONS = [
+    { value: 'MECANICA_ALTURA', label: 'Mecánica de Altura' },
+    { value: 'ACUATICA',        label: 'Acuática' },
+    { value: 'ESPECTACULO',     label: 'Espectáculo' },
+    { value: 'FAMILIAR',        label: 'Familiar' },
+]
+
+function GestionAtracciones({ atracciones, zonas, onRefresh }) {
+    const [showForm,    setShowForm]    = useState(false)
+    const [loading,     setLoading]     = useState(false)
+    const [error,       setError]       = useState('')
+    const [editando,    setEditando]    = useState(null)  // id de atracción en edición
+    const [editForm,    setEditForm]    = useState({})
+    const [loadingEdit, setLoadingEdit] = useState(false)
+    const [loadingDel,  setLoadingDel]  = useState(null)
+    const [form, setForm] = useState({
+        id: '', nombre: '', tipo: 'MECANICA_ALTURA',
+        capacidadMaxima: '', alturaMinima: '', edadMinima: '',
+        tiempoEsperaEstimado: '', zonaId: '',
+    })
+
+    async function handleCrear() {
+        if (!form.id.trim())     { setError('El ID de la atracción es obligatorio.'); return }
+        if (!form.nombre.trim()) { setError('El nombre de la atracción es obligatorio.'); return }
+        if (!form.zonaId)        { setError('La zona es obligatoria.'); return }
+        if (!form.capacidadMaxima || form.capacidadMaxima === '') { setError('La capacidad máxima es obligatoria.'); return }
+        if (Number(form.capacidadMaxima) < 0) { setError('La capacidad debe ser un número positivo.'); return }
+        if (form.alturaMinima !== '' && Number(form.alturaMinima) < 0) { setError('La altura mínima no puede ser negativa.'); return }
+        if (form.edadMinima !== '' && Number(form.edadMinima) < 0) { setError('La edad mínima no puede ser negativa.'); return }
+        if (form.tiempoEsperaEstimado !== '' && Number(form.tiempoEsperaEstimado) < 0) { setError('El tiempo de espera no puede ser negativo.'); return }
+        setError(''); setLoading(true)
+        try {
+            await atraccionService.crearEnZona({
+                id:                   form.id,
+                nombre:               form.nombre,
+                tipo:                 form.tipo,
+                capacidadMaxima:      form.capacidadMaxima ? parseInt(form.capacidadMaxima, 10) : 20,
+                alturaMinima:         form.alturaMinima    ? parseFloat(form.alturaMinima)      : 0,
+                edadMinima:           form.edadMinima      ? parseInt(form.edadMinima, 10)      : 0,
+                tiempoEsperaEstimado: form.tiempoEsperaEstimado ? parseInt(form.tiempoEsperaEstimado, 10) : 0,
+                zonaId:               form.zonaId,
+            })
+            await onRefresh()
+            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '' })
+            setShowForm(false)
+        } catch (e) {
+            setError(e?.response?.data || 'Error al crear la atracción.')
+        } finally { setLoading(false) }
+    }
+
+    function iniciarEdicion(a) {
+        setEditando(a.id)
+        setEditForm({
+            nombre:    a.nombre,
+            estado:    a.estado,
+        })
+    }
+
+    async function handleGuardarEdicion(a) {
+        setLoadingEdit(true)
+        try {
+            // Actualizar estado si cambió
+            if (editForm.estado && editForm.estado !== a.estado) {
+                await atraccionService.cambiarEstado(a.id, editForm.estado)
+            }
+            await onRefresh()
+            setEditando(null)
+        } catch (e) { console.error('Error editando atracción:', e) }
+        finally { setLoadingEdit(false) }
+    }
+
+    async function handleEliminarAtraccion(id) {
+        if (!window.confirm('¿Eliminar esta atracción?')) return
+        setLoadingDel(id)
+        try {
+            await atraccionService.cambiarEstado(id, 'CERRADA')
+            await onRefresh()
+        } catch (e) { console.error('Error eliminando atracción:', e) }
+        finally { setLoadingDel(null) }
+    }
+
+    return (
+        <div className="glass rounded-2xl overflow-hidden mb-6">
+            <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--c-border)' }}>
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(233,196,106,0.15)', border: '0.5px solid rgba(233,196,106,0.25)' }}>
+                        <Zap size={15} style={{ color: '#e9c46a' }} />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Gestión de atracciones</h2>
+                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>{atracciones.length} registradas</p>
+                    </div>
+                </div>
+                <Button variant="primary" size="sm" onClick={() => { setShowForm(!showForm); setError('') }}>
+                    <Plus size={13} /> Nueva atracción
+                </Button>
+            </div>
+
+            {showForm && (
+                <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)', background: 'rgba(255,255,255,0.02)' }}>
+                    {error && <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.2)' }}>{error}</p>}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Input label="ID de la atracción" placeholder="Ej: A-006" value={form.id} onChange={e => setForm(p => ({ ...p, id: e.target.value }))} />
+                        <Input label="Nombre" placeholder="Ej: Carrusel Mágico" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
+                        <div>
+                            <label className="tp-label">Tipo de atracción</label>
+                            <select className="tp-input tp-select w-full" value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value }))}>
+                                {TIPO_ATRACCION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        </div>
+                        <Input label="Capacidad máxima" type="number" min="0" placeholder="Ej: 20" value={form.capacidadMaxima} onChange={e => setForm(p => ({ ...p, capacidadMaxima: e.target.value }))} />
+                        <Input label="Altura mínima (m)" type="number" min="0" placeholder="Ej: 1.40" value={form.alturaMinima} onChange={e => setForm(p => ({ ...p, alturaMinima: e.target.value }))} />
+                        <Input label="Edad mínima" type="number" min="0" placeholder="Ej: 8" value={form.edadMinima} onChange={e => setForm(p => ({ ...p, edadMinima: e.target.value }))} />
+                        <Input label="Tiempo de espera estimado (min)" type="number" min="0" placeholder="Ej: 15" value={form.tiempoEsperaEstimado} onChange={e => setForm(p => ({ ...p, tiempoEsperaEstimado: e.target.value }))} />
+                        <div>
+                            <label className="tp-label">Zona</label>
+                            <select className="tp-input tp-select w-full" value={form.zonaId} onChange={e => setForm(p => ({ ...p, zonaId: e.target.value }))}>
+                                <option value="">Seleccionar zona…</option>
+                                {zonas.map(z => <option key={z.id} value={z.id}>{z.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex items-end">
+                            <Button variant="success" size="md" loading={loading} onClick={handleCrear} className="w-full justify-center">
+                                <CheckCircle size={14} /> Crear atracción
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="overflow-x-auto">
+                <table className="tp-table">
+                    <thead>
+                    <tr>
+                        <th>Atracción</th>
+                        <th>Zona</th>
+                        <th className="hidden md:table-cell">Tipo</th>
+                        <th>Estado</th>
+                        <th className="hidden md:table-cell">Cola</th>
+                        <th>Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {atracciones.length === 0 && (
+                        <tr><td colSpan={6} className="text-center py-8" style={{ color: 'var(--c-muted)' }}>No hay atracciones registradas.</td></tr>
+                    )}
+                    {atracciones.map((a) => (
+                        <React.Fragment key={a.id}>
+                            <tr>
+                                <td>
+                                    <div>
+                                        <p className="text-sm font-medium" style={{ color: 'var(--c-text)', fontFamily: 'var(--font-body)' }}>{a.nombre}</p>
+                                        <p className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{a.id}</p>
+                                    </div>
+                                </td>
+                                <td><span className="text-xs" style={{ color: 'var(--c-dim)' }}>{a.zona || '—'}</span></td>
+                                <td className="hidden md:table-cell"><span className="text-xs" style={{ color: 'var(--c-dim)' }}>{a.tipo}</span></td>
+                                <td>
+                                    <Badge variant={a.estado === 'ACTIVA' ? 'active' : a.estado === 'MANTENIMIENTO' ? 'pending' : 'closed'} dot>
+                                        {a.estado}
+                                    </Badge>
+                                </td>
+                                <td className="hidden md:table-cell">
+                                    <span className="font-mono text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-muted)' }}>
+                                        {a.visitantesEnCola ?? 0} en cola
+                                    </span>
+                                </td>
+                                <td>
+                                    <div className="flex items-center gap-1.5">
+                                        <button title="Editar atracción"
+                                                className="text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                                                style={{ background: 'rgba(69,123,157,0.12)', color: '#457b9d', border: '0.5px solid rgba(69,123,157,0.25)' }}
+                                                onClick={() => iniciarEdicion(a)}>
+                                            ✏️
+                                        </button>
+                                        <button title="Cerrar atracción"
+                                                className="text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                                                style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.2)' }}
+                                                onClick={() => handleEliminarAtraccion(a.id)}
+                                                disabled={loadingDel === a.id}>
+                                            {loadingDel === a.id ? '…' : <Trash2 size={11} />}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {editando === a.id && (
+                                <tr key={`edit-${a.id}`}>
+                                    <td colSpan={6} style={{ background: 'rgba(69,123,157,0.05)', padding: '12px 16px' }}>
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                            <span className="text-xs" style={{ color: 'var(--c-muted)' }}>Cambiar estado:</span>
+                                            <select className="tp-input tp-select" style={{ maxWidth: 200 }}
+                                                    value={editForm.estado}
+                                                    onChange={e => setEditForm(p => ({ ...p, estado: e.target.value }))}>
+                                                <option value="ACTIVA">ACTIVA</option>
+                                                <option value="EN_MANTENIMIENTO">EN_MANTENIMIENTO</option>
+                                                <option value="CERRADA">CERRADA</option>
+                                            </select>
+                                            <Button variant="success" size="sm" loading={loadingEdit} onClick={() => handleGuardarEdicion(a)}>
+                                                <CheckCircle size={12} /> Guardar
+                                            </Button>
+                                            <Button variant="ghost" size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </React.Fragment>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    )
+}
+
+// ─── Visualizar visitantes ────────────────────────────────────────────────────
+function VisualizarVisitantes({ visitantesParque, listarVisitantes }) {
+    const [loading, setLoading] = useState(false)
+
+    // Cargar visitantes automáticamente al montar el componente
+    React.useEffect(() => {
+        async function cargarInicial() {
+            setLoading(true)
+            await listarVisitantes()
+            setLoading(false)
+        }
+        cargarInicial()
+    }, [listarVisitantes])
+
+    async function recargar() {
+        setLoading(true)
+        await listarVisitantes()
+        setLoading(false)
+    }
+
+    return (
+        <div className="glass rounded-2xl overflow-hidden mb-6">
+            <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--c-border)' }}>
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(106,76,147,0.15)', border: '0.5px solid rgba(106,76,147,0.25)' }}>
+                        <Eye size={15} style={{ color: '#6a4c93' }} />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Visitantes registrados</h2>
+                        <p className="text-xs" style={{ color: 'var(--c-muted)' }}>{visitantesParque.length} en el sistema</p>
+                    </div>
+                </div>
+                <Button variant="ghost" size="sm" loading={loading} onClick={recargar}>
+                    <RefreshCw size={13} /> Actualizar
+                </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+                {loading && visitantesParque.length === 0 ? (
+                    <div className="flex items-center justify-center py-8 gap-2" style={{ color: 'var(--c-muted)' }}>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span className="text-sm">Cargando visitantes…</span>
+                    </div>
+                ) : (
+                    <table className="tp-table">
+                        <thead>
+                        <tr>
+                            <th>Visitante</th>
+                            <th className="hidden md:table-cell">Email</th>
+                            <th>Ticket</th>
+                            <th className="hidden md:table-cell">Saldo</th>
+                            <th className="hidden md:table-cell">ID</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {visitantesParque.length === 0 && (
+                            <tr><td colSpan={5} className="text-center py-8" style={{ color: 'var(--c-muted)' }}>No hay visitantes registrados.</td></tr>
+                        )}
+                        {visitantesParque.map((v) => (
+                            <tr key={v.id || v.idVisitante}>
+                                <td>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                             style={{ background: 'rgba(106,76,147,0.2)', color: '#6a4c93', border: '0.5px solid rgba(106,76,147,0.3)', fontFamily: 'var(--font-display)' }}>
+                                            {(v.nombre || 'V').charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="text-sm font-medium" style={{ color: 'var(--c-text)', fontFamily: 'var(--font-body)' }}>{v.nombre || '—'}</span>
+                                    </div>
+                                </td>
+                                <td className="hidden md:table-cell"><span className="font-mono text-xs" style={{ color: 'var(--c-muted)' }}>{v.email || '—'}</span></td>
+                                <td>
+                                    <Badge variant={
+                                        (v.tipoTicket || '').includes('FAST') ? 'fastpass' :
+                                            v.tipoTicket === 'FAMILIAR' ? 'active' : 'info'
+                                    } dot>
+                                        {v.tipoTicket || 'GENERAL'}
+                                    </Badge>
+                                </td>
+                                <td className="hidden md:table-cell">
+                                    <span className="font-mono text-xs" style={{ color: '#22c55e', fontFamily: 'var(--font-mono)' }}>
+                                        ${Number(v.saldo ?? 0).toLocaleString('es-CO')}
+                                    </span>
+                                </td>
+                                <td className="hidden md:table-cell"><span className="font-mono text-xs" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{v.id || v.idVisitante}</span></td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Administracion() {
     const {
         operadores:          opCtx,
         zonas:               zonasCtx,
+        atracciones:         atraccionesCtx,
         alertasClimaticas:   alertasCtx,
         alertasMantenimiento: mantCtx,
+        visitantesParque,
+        listarVisitantes,
         cargandoGlobal,
         setOperadores:       setOpCtx,
         setAlertasClimaticas: setAlertasCtx,
@@ -633,7 +1134,7 @@ export default function Administracion() {
 
             {!cargandoGlobal && (
                 <>
-                    <AdminHero operadores={operadores} zonas={zonas} alertasActivas={alertasActivas} />
+                    <AdminHero operadores={operadores} zonas={zonas} alertasActivas={alertasActivas} atracciones={atraccionesCtx} visitantes={visitantesParque} />
 
                     <MetricasRapidas operadores={operadores} zonas={zonas} mantenimiento={mantenimiento} alertas={alertas} />
 
@@ -644,13 +1145,23 @@ export default function Administracion() {
                         <div className="xl:col-span-2 space-y-6">
                             <GestionOperadores
                                 operadores={operadores}
+                                operadoresRaw={opCtx}
                                 setOperadores={setOpCtx}
                                 zonas={zonas}
                                 onRefresh={refrescarOperadores}
                             />
+                            <GestionAtracciones
+                                atracciones={atraccionesCtx}
+                                zonas={zonas}
+                                onRefresh={refrescarAtracciones}
+                            />
                             <GestionZonas
                                 zonas={zonas}
                                 onRefresh={refrescarTodo}
+                            />
+                            <VisualizarVisitantes
+                                visitantesParque={visitantesParque}
+                                listarVisitantes={listarVisitantes}
                             />
                             <Mantenimiento
                                 items={mantenimiento}

@@ -240,6 +240,12 @@ body {
   padding-right: 36px;
 }
 
+/* ── Select option text: negro para legibilidad en dropdown nativo ─────── */
+select option {
+  color: #111111;
+  background-color: #ffffff;
+}
+
 /* ── Label ─────────────────────────────────────── */
 .tp-label {
   display: block;
