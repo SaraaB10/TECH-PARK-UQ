@@ -1,4 +1,4 @@
-// src/context/AppContext.jsx  ─── REEMPLAZO COMPLETO
+// src/context/AppContext.jsx
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import {
     parqueService,
@@ -13,7 +13,7 @@ import {
 // ─── Precios reales del backend ───────────────────────────────────────────────
 export const COSTO_TICKET = {
     GENERAL:   50000,
-    FAMILIAR:  50000,
+    FAMILIAR:  70000,
     FAST_PASS: 120000,
 }
 
@@ -102,23 +102,25 @@ export function AppProvider({ children }) {
         setNotifs([])
         // Guardar visitante logueado
         const v = {
-            id:         data.idVisitante,
-            nombre:     data.nombre,
-            email:      data.email,
-            tipoTicket: normalizarTipo(data.tipoTicket),
+            id:          data.idVisitante,
+            nombre:      data.nombre,
+            email:       data.email,
+            tipoTicket:  normalizarTipo(data.tipoTicket),
             backendTipo: data.tipoTicket,
             saldoInicial: data.saldo,
         }
         setVisitanteRaw(v)
-        setSaldo(data.saldo)
+        setSaldo(data.saldo ?? 0)
         // Cargar historial y notifs
         try {
             const [histRes, notifRes] = await Promise.allSettled([
                 visitanteService.getHistorial(data.idVisitante),
                 alertaService.getNotificaciones(data.idVisitante),
             ])
-            if (histRes.status === 'fulfilled' && histRes.value?.data?.historial)
-                setHistorial(histRes.value.data.historial)
+            if (histRes.status === 'fulfilled') {
+                const raw = histRes.value?.data
+                setHistorial(Array.isArray(raw) ? raw : (raw?.historial ?? []))
+            }
             if (notifRes.status === 'fulfilled' && notifRes.value?.data)
                 setNotifs(notifRes.value.data)
         } catch { /* silencioso */ }

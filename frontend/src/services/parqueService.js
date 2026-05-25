@@ -47,6 +47,7 @@ export const atraccionService = {
     procesarCola:    (id)         => api.post(`/atracciones/${id}/procesar-cola`),
     cambiarEstado:   (id, estado) => api.put(`/atracciones/${id}/estado`, { estado }),
     registrarRevision: (id)       => api.post(`/atracciones/${id}/revision-tecnica`),
+    crearEnZona:     (data)       => api.post('/atracciones', data),
 }
 
 // ─── Operadores ──────────────────────────────────────────────────────────────
@@ -62,6 +63,8 @@ export const operadorService = {
 // ─── Visitantes ──────────────────────────────────────────────────────────────
 export const visitanteService = {
     registrar:       (data)            => api.post('/visitantes/registrar', data),
+    login:           (email, contrasena) => api.post('/visitantes/login', { email, contrasena }),
+    getAll:          ()                => api.get('/visitantes'),
     getHistorial:    (id)              => api.get(`/visitantes/${id}/historial`),
     getSaldo:        (id)              => api.get(`/visitantes/${id}/saldo`),
     agregarFavorito: (id, atraccionId) =>

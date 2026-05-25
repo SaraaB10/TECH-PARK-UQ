@@ -1,4 +1,4 @@
-// src/pages/Carga.jsx  ─── REEMPLAZO COMPLETO
+// src/pages/Carga.jsx
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
     Rocket, Database, Server, Wifi, WifiOff, CheckCircle,
@@ -22,14 +22,6 @@ import { useApp } from '@/context/AppContext'
 
 // ─── Escenarios reales ────────────────────────────────────────────────────────
 const ESCENARIOS = [
-    {
-        id: 'completo',
-        nombre: 'Escenario completo',
-        desc: 'Carga zonas, atracciones, operadores, visitantes y senderos completos desde JSON',
-        icon: '🎡',
-        color: '#2a9d8f',
-        call: () => parqueService.cargarDatos(),
-    },
     {
         id: 'prueba',
         nombre: 'Prueba rápida',
@@ -92,13 +84,21 @@ function useSistemaReal(datosCargadosCtx) {
     const [cargado,  setCargado]  = useState(false)
     const [cargando, setCargando] = useState(false)
 
+    // Permite poblar el resumen directamente tras una carga exitosa
+    function aplicarResumen(resumenReal) {
+        setSistema(resumenReal)
+        setCargado(true)
+    }
+
     const cargarResumen = useCallback(async () => {
         setCargando(true)
         try {
-            const estadoRes  = await parqueService.estadoCarga()
-            const yaHayDatos = estadoRes.data?.cargado === true
-
-            if (!yaHayDatos) { setCargado(false); setSistema(null); return }
+            // Verificar el flag del backend, pero no bloquear si no existe
+            let yaHayDatos = false
+            try {
+                const estadoRes = await parqueService.estadoCarga()
+                yaHayDatos = estadoRes.data?.cargado === true
+            } catch { /* continuar si el endpoint falla */ }
 
             const [zonasRes, atraccionesRes, operadoresRes, alertasRes] = await Promise.allSettled([
                 zonaService.getAll(), atraccionService.getAll(), operadorService.getAll(), alertaService.getMantenimiento(),
@@ -108,6 +108,12 @@ function useSistemaReal(datosCargadosCtx) {
             const atracciones = atraccionesRes.status === 'fulfilled' ? atraccionesRes.value.data : []
             const operadores  = operadoresRes.status  === 'fulfilled' ? operadoresRes.value.data  : []
             const alertas     = alertasRes.status     === 'fulfilled' ? alertasRes.value.data     : []
+
+            // Usar datos reales directamente, sin depender solo del flag
+            const hayDatosReales = (Array.isArray(zonas) && zonas.length > 0) ||
+                (Array.isArray(atracciones) && atracciones.length > 0)
+
+            if (!yaHayDatos && !hayDatosReales) { setCargado(false); setSistema(null); return }
 
             setSistema({
                 zonas:       Array.isArray(zonas)       ? zonas.length       : 0,
@@ -127,7 +133,7 @@ function useSistemaReal(datosCargadosCtx) {
         if (datosCargadosCtx) cargarResumen()
     }, [datosCargadosCtx, cargarResumen])
 
-    return { sistema, cargado, cargandoResumen: cargando, cargarResumen }
+    return { sistema, cargado, cargandoResumen: cargando, cargarResumen, aplicarResumen }
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
@@ -199,7 +205,7 @@ function HeroCarga({ backendStatus, latency, cargado }) {
 
 // ─── Panel de carga ───────────────────────────────────────────────────────────
 function PanelCarga({ onLog, onCargaCompleta }) {
-    const [escenario,  setEscenario]  = useState('completo')
+    const [escenario,  setEscenario]  = useState('prueba')
     const [cargando,   setCargando]   = useState(false)
     const [progreso,   setProgreso]   = useState(0)
     const [pasoActual, setPasoActual] = useState(null)
@@ -232,7 +238,7 @@ function PanelCarga({ onLog, onCargaCompleta }) {
                 setPasoActual(paso.id); onLog({ tipo: 'log', msg: `▸ ${paso.label}…` })
                 count.count++
                 if (paso.id === 'envio') {
-                    onLog({ tipo: 'info', msg: `POST ${esc.id === 'completo' ? '/api/parque/cargar-datos' : '/api/parque/cargar-datos-prueba'}` })
+                    onLog({ tipo: 'info', msg: `POST /api/parque/cargar-datos-prueba` })
                     const res = await esc.call()
                     const respMsg = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
                     onLog({ tipo: 'ok', msg: `✓ Servidor respondió: ${respMsg}` })
@@ -298,7 +304,7 @@ function PanelCarga({ onLog, onCargaCompleta }) {
                 </div>
             </div>
             <div className="p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 gap-3 mb-6">
                     {ESCENARIOS.map((e) => (
                         <button key={e.id} disabled={cargando}
                                 onClick={() => { setEscenario(e.id); setError(null); setExitoso(false) }}
@@ -311,7 +317,7 @@ function PanelCarga({ onLog, onCargaCompleta }) {
                             </div>
                             <p className="text-xs leading-relaxed" style={{ color: 'var(--c-muted)' }}>{e.desc}</p>
                             <div className="mt-2 text-xs font-mono" style={{ fontFamily: 'var(--font-mono)', color: e.color, opacity: 0.8 }}>
-                                {e.id === 'completo' ? 'POST /api/parque/cargar-datos' : 'POST /api/parque/cargar-datos-prueba'}
+                                POST /api/parque/cargar-datos-prueba
                             </div>
                         </button>
                     ))}
@@ -379,7 +385,6 @@ function EstadoBackend({ status, latency, onPing }) {
     const online   = status === 'online'
     const checking = status === 'checking'
     const ENDPOINTS = [
-        { path: '/api/parque/cargar-datos',        metodo: 'POST', ok: online },
         { path: '/api/parque/cargar-datos-prueba', metodo: 'POST', ok: online },
         { path: '/api/parque/estado-carga',        metodo: 'GET',  ok: online },
         { path: '/api/zonas',                      metodo: 'GET',  ok: online },
@@ -640,7 +645,7 @@ export default function Carga() {
     // Acceso al contexto global para refrescar TODO tras una carga exitosa
     const { datosCargados, setDatosCargados, refrescarTodo } = useApp()
 
-    const { sistema, cargado, cargandoResumen, cargarResumen } = useSistemaReal(datosCargados)
+    const { sistema, cargado, cargandoResumen, cargarResumen, aplicarResumen } = useSistemaReal(datosCargados)
 
     const [historial, setHistorial] = useState([])
     const [logs, setLogs] = useState([
@@ -656,10 +661,13 @@ export default function Carga() {
     function addLog(entry) { setLogs(prev => [...prev, { ...entry, hora: ts() }]) }
 
     async function handleCargaCompleta(esc, duracionMs, resumenReal) {
-        cargarResumen()
+        // Poblar el resumen directamente con los datos que ya tenemos (sin re-query)
+        aplicarResumen(resumenReal)
         setDatosCargados(true)
-        // ← Notifica al contexto global para que TODAS las páginas reciban los datos nuevos
+        // Notifica al contexto global para que TODAS las páginas reciban los datos nuevos
         await refrescarTodo()
+        // Re-consultar para sincronizar con el backend (actualiza visitantes, alertas, etc.)
+        cargarResumen()
 
         setHistorial(prev => [{
             id:        Date.now(),
