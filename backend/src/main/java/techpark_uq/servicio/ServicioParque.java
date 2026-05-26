@@ -39,16 +39,38 @@ public class ServicioParque {
         return parque.venderTicket(visitante, tipoTicket);
     }
 
-    // ── Helper: recalcula tiempoEsperaEstimado según tamaño actual de la cola ──
-    // Formula: ceil(colaSize / capacidadMaximaPorCiclo) * MINUTOS_POR_CICLO
-    // Ejemplo: cola=8, capacidad=20 → ceil(8/20)=1 → 5 min
-    // Ejemplo: cola=25, capacidad=10 → ceil(25/10)=3 → 15 min
+    // ── Helper: recalcula tiempos de espera diferenciados por prioridad ──────
+    // Usa el tiempoEsperaBase configurado en Administración como duración
+    // de un ciclo, en vez de un valor fijo hardcodeado.
+    // FastPass (prioridad 1) solo espera a los FastPass que van delante.
+    // General  (prioridad 2) espera a todos los FastPass + los General delante.
     private void recalcularTiempoEspera(Atraccion atraccion) {
-        int colaSize  = atraccion.getColaVirtual().tamano();
-        int capacidad = atraccion.getCapacidadMaximaPorCiclo();
+        int fastPassEnCola  = atraccion.getColaVirtual().tamanoFastPass();
+        int generalesEnCola = atraccion.getColaVirtual().tamanoGeneral();
+        int capacidad       = atraccion.getCapacidadMaximaPorCiclo();
         if (capacidad <= 0) capacidad = 1;
-        int ciclos = (int) Math.ceil((double) colaSize / capacidad);
-        atraccion.setTiempoEsperaEstimado(ciclos * MINUTOS_POR_CICLO);
+
+        // Duración real de un ciclo: el valor configurado en Administración.
+        // Si aún no fue configurado (0), cae al default de 5 min.
+        int minutosPorCiclo = atraccion.getTiempoEsperaBase() > 0
+                ? atraccion.getTiempoEsperaBase()
+                : MINUTOS_POR_CICLO;
+
+        // FastPass: solo espera los ciclos ocupados por FastPass delante
+        int ciclosFastPass = (int) Math.ceil((double) fastPassEnCola / capacidad);
+        int tiempoFastPass = Math.max(ciclosFastPass, colaVaciaEsZero(fastPassEnCola)) * minutosPorCiclo;
+
+        // General: espera todos los FastPass + todos los generales delante
+        int ciclosGeneral  = (int) Math.ceil((double) (fastPassEnCola + generalesEnCola) / capacidad);
+        int tiempoGeneral  = Math.max(ciclosGeneral,  colaVaciaEsZero(fastPassEnCola + generalesEnCola)) * minutosPorCiclo;
+
+        atraccion.setTiempoEsperaFastPass(tiempoFastPass);
+        atraccion.setTiempoEsperaEstimado(tiempoGeneral); // General / valor general
+    }
+
+    // Retorna 0 si la cola está vacía (sin espera), 1 si hay al menos uno
+    private int colaVaciaEsZero(int enCola) {
+        return enCola > 0 ? 1 : 0;
     }
 
     // Validar acceso a atracción
@@ -99,7 +121,15 @@ public class ServicioParque {
         Visitante siguiente = atraccion.getColaVirtual().siguienteVisitante();
         if (siguiente != null) {
             // Registra la visita (incrementa contadorVisitantes de la atracción)
+            boolean estabaActiva = atraccion.estaActiva();
             atraccion.registrarVisitante();
+
+            // Si registrarVisitante activó el bloqueo, crear alerta de mantenimiento
+            if (estabaActiva && !atraccion.estaActiva() && atraccion.isRequiereSeguimientoTecnico()) {
+                String idAlerta = "AM-" + System.currentTimeMillis();
+                AlertaMantenimiento alerta = new AlertaMantenimiento(idAlerta, atraccion);
+                parque.getAlertasMantenimiento().add(alerta);
+            }
             siguiente.agregarHistorial(atraccion);
             siguiente.setUbicacionActual(atraccion);
 
@@ -130,14 +160,19 @@ public class ServicioParque {
         return "Estado actualizado a: " + nuevoEstado;
     }
 
-    // Revisión técnica
     public String registrarRevisionTecnica(String idAtraccion) {
         Atraccion atraccion = buscarAtraccion(idAtraccion);
         if (atraccion == null) return "Atracción no encontrada";
+        if (!atraccion.isRevisionTecnicaPendiente()) return "La atracción no tiene revisión técnica pendiente";
 
-        atraccion.setEstado(EstadoAtraccion.ACTIVA);
-        atraccion.setMotivoCierre(null);
-        return "Revisión técnica registrada. Atracción reactivada.";
+        atraccion.registrarRevisionSatisfactoria();
+
+        // Resolver la alerta de mantenimiento pendiente asociada
+        parque.getAlertasMantenimiento().stream()
+                .filter(am -> am.getAtraccion().getId().equals(idAtraccion) && !am.isResuelta())
+                .forEach(AlertaMantenimiento::resolver);
+
+        return "Revisión técnica registrada. Atracción reactivada: " + atraccion.getNombre();
     }
 
     // Alerta climática
@@ -201,6 +236,13 @@ public class ServicioParque {
         Zona zona = new Zona(id, nombre, capacidadMaxima);
         parque.agregarZona(zona);
         return "Zona creada correctamente: " + nombre;
+    }
+
+    public String crearAtraccionEnZona(Atraccion atraccion, String zonaId, double distancia) {
+        Zona zona = parque.buscarZona(zonaId);
+        if (zona == null) return "Zona no encontrada: " + zonaId;
+        parque.agregarAtraccionAZona(atraccion, zonaId, distancia);
+        return "Atracción creada correctamente: " + atraccion.getNombre();
     }
 
     // Operadores
@@ -322,12 +364,5 @@ public class ServicioParque {
             }
         }
         return resultado;
-    }
-
-    public String crearAtraccionEnZona(Atraccion atraccion, String zonaId, double distancia) {
-        Zona zona = parque.buscarZona(zonaId);
-        if (zona == null) return "Zona no encontrada: " + zonaId;
-        parque.agregarAtraccionAZona(atraccion, zonaId, distancia);
-        return "Atracción creada correctamente: " + atraccion.getNombre();
     }
 }

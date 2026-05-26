@@ -14,7 +14,9 @@ public class Atraccion {
     private int edadMinima;
     private double costoAdicional;
     private int contadorVisitantes;
-    private int tiempoEsperaEstimado;
+    private int tiempoEsperaEstimado;  // tiempo General (recalculado dinámicamente)
+    private int tiempoEsperaFastPass;  // tiempo FastPass (recalculado dinámicamente)
+    private int tiempoEsperaBase;      // valor configurado en Administración (base de un ciclo)
     private EstadoAtraccion estado;
     private String motivoCierre;
     private int contadorIncidentes;
@@ -23,6 +25,9 @@ public class Atraccion {
     private ColaVirtual colaVirtual;
 
     private static final int LIMITE_MANTENIMIENTO = 500;
+
+    private boolean requiereSeguimientoTecnico;  // configurado al crear la atracción
+    private boolean revisionTecnicaPendiente;    // true = bloqueada, impide ingresos
 
     public Atraccion(String id, String nombre, TipoAtraccion tipo,
                      int capacidadMaximaPorCiclo, double alturaMinima,
@@ -36,26 +41,43 @@ public class Atraccion {
         this.costoAdicional = costoAdicional;
         this.contadorVisitantes = 0;
         this.tiempoEsperaEstimado = 0;
+        this.tiempoEsperaFastPass = 0;
+        this.tiempoEsperaBase     = 0;
         this.estado = EstadoAtraccion.ACTIVA;
         this.contadorIncidentes = 0;
+        this.requiereSeguimientoTecnico = false;
+        this.revisionTecnicaPendiente   = false;
         this.operadoresResponsables = new ListaEnlazada<>();
         this.colaVirtual = new ColaVirtual(this);
     }
 
+    // Solo aplica si la atracción requiere seguimiento técnico
     public boolean verificarMantenimientoPreventivo() {
-        return contadorVisitantes >= LIMITE_MANTENIMIENTO;
+        return requiereSeguimientoTecnico && contadorVisitantes >= LIMITE_MANTENIMIENTO;
     }
 
     public void aplicarBloqueoMantenimiento() {
         this.estado = EstadoAtraccion.EN_MANTENIMIENTO;
-        this.motivoCierre = "Mantenimiento preventivo: límite de 500 visitantes alcanzado";
+        this.motivoCierre = "Mantenimiento preventivo: límite de "
+                + LIMITE_MANTENIMIENTO + " visitantes alcanzado";
+        this.revisionTecnicaPendiente = true;
     }
 
+    // Impide ingresos si hay revisión pendiente; bloquea al llegar a 500
     public void registrarVisitante() {
+        if (revisionTecnicaPendiente) return;
         contadorVisitantes++;
         if (verificarMantenimientoPreventivo()) {
             aplicarBloqueoMantenimiento();
         }
+    }
+
+    // Llamado por ServicioParque.registrarRevisionTecnica() tras confirmar la revisión
+    public void registrarRevisionSatisfactoria() {
+        this.estado                 = EstadoAtraccion.ACTIVA;
+        this.motivoCierre           = null;
+        this.revisionTecnicaPendiente = false;
+        this.contadorVisitantes     = 0;   // reinicia el ciclo de 500
     }
 
     public void cerrarPorClima(String motivo) {
@@ -89,6 +111,13 @@ public class Atraccion {
     public void setMotivoCierre(String motivoCierre) { this.motivoCierre = motivoCierre; }
     public void setZona(Zona zona) { this.zona = zona; }
     public void setTiempoEsperaEstimado(int tiempo) { this.tiempoEsperaEstimado = tiempo; }
+    public void setTiempoEsperaFastPass(int tiempo) { this.tiempoEsperaFastPass = tiempo; }
+    public int  getTiempoEsperaFastPass()           { return tiempoEsperaFastPass; }
+    public void setTiempoEsperaBase(int tiempo)     { this.tiempoEsperaBase = tiempo; }
+    public int  getTiempoEsperaBase()               { return tiempoEsperaBase; }
+    public boolean isRequiereSeguimientoTecnico() { return requiereSeguimientoTecnico; }
+    public void setRequiereSeguimientoTecnico(boolean v) { this.requiereSeguimientoTecnico = v; }
+    public boolean isRevisionTecnicaPendiente() { return revisionTecnicaPendiente; }
 
     @Override
     public String toString() {

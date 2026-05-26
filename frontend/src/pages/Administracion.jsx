@@ -19,6 +19,7 @@ import {
     alertaService,
 } from '@/services/parqueService'
 import { useApp } from '@/context/AppContext'
+import { imagenAtraccionService } from '@/services/imagenAtraccionService'
 
 // ─── Colores por índice ───────────────────────────────────────────────────────
 const ZONA_COLORS = ['#f4a261', '#457b9d', '#6a4c93', '#2a9d8f', '#e63946']
@@ -798,6 +799,7 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
         id: '', nombre: '', tipo: 'MECANICA_ALTURA',
         capacidadMaxima: '', alturaMinima: '', edadMinima: '',
         tiempoEsperaEstimado: '', zonaId: '', distancia: '',
+        imagenUrl: '',
     })
 
     async function handleCrear() {
@@ -821,9 +823,15 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
                 tiempoEsperaEstimado: form.tiempoEsperaEstimado ? parseInt(form.tiempoEsperaEstimado, 10) : 0,
                 zonaId:               form.zonaId,
                 distancia:            form.distancia ? parseFloat(form.distancia) : 50,
+                imagenUrl:            form.imagenUrl.trim() || null,
             })
+            // Persistir la imagen en localStorage para que Inicio, Visitante
+            // y Favoritos la muestren sin necesidad de recargar el backend
+            if (form.imagenUrl.trim()) {
+                imagenAtraccionService.set(form.id, form.imagenUrl.trim())
+            }
             await onRefresh()
-            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '', distancia: '' })
+            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '', distancia: '', imagenUrl: '' })
             setShowForm(false)
         } catch (e) {
             const msg = typeof e?.response?.data === 'string'
@@ -933,6 +941,7 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
                         <Input label="Edad mínima" type="number" min="0" placeholder="Ej: 8" value={form.edadMinima} onChange={e => setForm(p => ({ ...p, edadMinima: e.target.value }))} />
                         <Input label="Tiempo de espera estimado (min)" type="number" min="0" placeholder="Ej: 15" value={form.tiempoEsperaEstimado} onChange={e => setForm(p => ({ ...p, tiempoEsperaEstimado: e.target.value }))} />
                         <Input label="Distancia a otras atracciones (m)" type="number" min="1" placeholder="Ej: 80" value={form.distancia} onChange={e => setForm(p => ({ ...p, distancia: e.target.value }))} />
+                        <Input label="URL de imagen (opcional)" type="url" placeholder="https://ejemplo.com/imagen.jpg" value={form.imagenUrl} onChange={e => setForm(p => ({ ...p, imagenUrl: e.target.value }))} />
                         <div>
                             <label className="tp-label">Zona</label>
                             <select className="tp-input tp-select w-full" value={form.zonaId} onChange={e => setForm(p => ({ ...p, zonaId: e.target.value }))}>
@@ -969,9 +978,17 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, s
                         <React.Fragment key={a.id}>
                             <tr>
                                 <td>
-                                    <div>
-                                        <p className="text-sm font-medium" style={{ color: 'var(--c-text)', fontFamily: 'var(--font-body)' }}>{a.nombre}</p>
-                                        <p className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{a.id}</p>
+                                    <div className="flex items-center gap-2">
+                                        {a.imagenUrl && (
+                                            <img src={a.imagenUrl} alt={a.nombre}
+                                                 className="rounded-lg object-cover flex-shrink-0"
+                                                 style={{ width: 36, height: 36, border: '0.5px solid var(--c-border)' }}
+                                                 onError={e => { e.target.style.display = 'none' }} />
+                                        )}
+                                        <div>
+                                            <p className="text-sm font-medium" style={{ color: 'var(--c-text)', fontFamily: 'var(--font-body)' }}>{a.nombre}</p>
+                                            <p className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{a.id}</p>
+                                        </div>
                                     </div>
                                 </td>
                                 <td><span className="text-xs" style={{ color: 'var(--c-dim)' }}>{a.zona || '—'}</span></td>

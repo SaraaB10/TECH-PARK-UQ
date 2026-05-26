@@ -517,9 +517,14 @@ function ColaVirtual({ visitanteId, visitanteTipoTicket, atracciones }) {
                                 <div className="flex items-center justify-between text-xs mt-2">
                                     <span style={{ color: '#e9c46a' }}>
                                         <Clock size={10} className="inline mr-1" />
-                                        {(colaActiva.tiempoEsperaEstimado ?? 0) > 0
-                                            ? `~${colaActiva.tiempoEsperaEstimado} min estimado`
-                                            : 'Sin tiempo de espera estimado'}
+                                        {(() => {
+                                            const tiempo = prioridadUI === 1
+                                                ? (colaActiva.tiempoEsperaFastPass ?? colaActiva.tiempoEsperaEstimado ?? 0)
+                                                : (colaActiva.tiempoEsperaEstimado ?? 0)
+                                            return tiempo > 0
+                                                ? `~${tiempo} min estimado${prioridadUI === 1 ? ' (FastPass)' : ''}`
+                                                : 'Sin tiempo de espera estimado'
+                                        })()}
                                     </span>
                                     <Badge variant={(colaInfo.visitantesEnCola ?? 0) < 15 ? 'active' : 'pending'} dot>
                                         {(colaInfo.visitantesEnCola ?? 0) < 15 ? 'Flujo normal' : 'Alta demanda'}
@@ -553,7 +558,9 @@ function ColaVirtual({ visitanteId, visitanteTipoTicket, atracciones }) {
                             <div className="text-right flex-shrink-0 ml-3 text-xs" style={{ color: 'var(--c-muted)' }}>
                                 <div className="flex items-center gap-1 justify-end" style={{ color: '#e9c46a' }}>
                                     <Clock size={10} />
-                                    {(a.tiempoEsperaEstimado ?? 0) > 0 ? `~${a.tiempoEsperaEstimado} min` : 'Sin espera'}
+                                    {(a.tiempoEsperaEstimado ?? 0) > 0
+                                        ? `~${prioridadUI === 1 && a.tiempoEsperaFastPass > 0 ? a.tiempoEsperaFastPass : a.tiempoEsperaEstimado} min`
+                                        : 'Sin espera'}
                                 </div>
                                 <div>{a.contadorVisitantes ?? 0} visitantes</div>
                             </div>
@@ -645,9 +652,9 @@ function Favoritos({ favoritos, setFavoritos, visitanteId, atracciones }) {
                              style={{ background: 'rgba(255,255,255,0.03)', border: `0.5px solid ${accent}30` }}>
                             <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0"
                                  style={{ border: `0.5px solid ${accent}30` }}>
-                                {imagenAtraccionService.get(f.id) || IMAGENES_DEFAULT[f.id] ? (
+                                {imagenAtraccionService.get(f.id) || f.imagenUrl || IMAGENES_DEFAULT[f.id] ? (
                                     <img
-                                        src={imagenAtraccionService.get(f.id) || IMAGENES_DEFAULT[f.id]}
+                                        src={imagenAtraccionService.get(f.id) || f.imagenUrl || IMAGENES_DEFAULT[f.id]}
                                         alt={f.nombre}
                                         className="w-full h-full object-cover"
                                     />
