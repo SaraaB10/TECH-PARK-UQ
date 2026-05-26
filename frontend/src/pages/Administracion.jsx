@@ -19,6 +19,7 @@ import {
     alertaService,
 } from '@/services/parqueService'
 import { useApp } from '@/context/AppContext'
+import { imagenAtraccionService } from '@/services/imagenAtraccionService'
 
 // ─── Colores por índice ───────────────────────────────────────────────────────
 const ZONA_COLORS = ['#f4a261', '#457b9d', '#6a4c93', '#2a9d8f', '#e63946']
@@ -236,7 +237,10 @@ function GestionOperadores({ operadores, operadoresRaw = [], setOperadores, zona
             setForm({ id: '', nombre: '', edad: '', telefono: '', email: '', contrasena: '' })
             setShowForm(false)
         } catch (e) {
-            setError(e?.response?.data || 'Error al crear operador.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al crear el operador.'
+            setError(msg)
         } finally { setLoading(false) }
     }
 
@@ -295,7 +299,10 @@ function GestionOperadores({ operadores, operadoresRaw = [], setOperadores, zona
             await onRefresh()
             setEditando(null)
         } catch (e) {
-            setEditError(e?.response?.data || 'Error al actualizar el operador.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al actualizar el operador.'
+            setError(msg)
         } finally { setLoadingEdit(false) }
     }
 
@@ -466,7 +473,10 @@ function GestionZonas({ zonas, onRefresh }) {
             setForm({ id: '', nombre: '', capacidadMaxima: '' })
             setShowForm(false)
         } catch (e) {
-            setError(e?.response?.data || 'Error al crear la zona.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al crear la zona.'
+            setError(msg)
         } finally { setLoading(false) }
     }
 
@@ -698,11 +708,12 @@ function Mantenimiento({ items, setItems, onRefreshAtracciones, onRefreshAlertas
         setLoading(idAlerta)
         try {
             await alertaService.resolverMantenimiento(idAlerta)
-            setItems(prev => prev.map(m => m.id === idAlerta ? { ...m, resuelta: true } : m))
-            // Refrescar atracciones porque el backend las reactiva
+            // Marcar como resuelta en mantCtx directamente — esto actualiza
+            // el panel y el contador "Mantenimientos resueltos" del resumen
+            setItems(prev => prev.map(m =>
+                String(m.id || m.idAlerta) === String(idAlerta) ? { ...m, resuelta: true } : m
+            ))
             await onRefreshAtracciones()
-            // Refrescar alertas para sincronizar el Resumen del sistema
-            if (onRefreshAlertas) await onRefreshAlertas()
         } catch (e) { console.error('Error resolviendo alerta:', e) }
         finally { setLoading(null) }
     }
@@ -773,10 +784,10 @@ const TIPO_ATRACCION_OPTIONS = [
     { value: 'MECANICA_ALTURA', label: 'Mecánica de Altura' },
     { value: 'ACUATICA',        label: 'Acuática' },
     { value: 'ESPECTACULO',     label: 'Espectáculo' },
-    { value: 'FAMILIAR',        label: 'Familiar' },
+    { value: 'OTRO',            label: 'Otro' },
 ]
 
-function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas }) {
+function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas, setMantCtx }) {
     const [showForm,    setShowForm]    = useState(false)
     const [loading,     setLoading]     = useState(false)
     const [error,       setError]       = useState('')
@@ -787,7 +798,8 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
     const [form, setForm] = useState({
         id: '', nombre: '', tipo: 'MECANICA_ALTURA',
         capacidadMaxima: '', alturaMinima: '', edadMinima: '',
-        tiempoEsperaEstimado: '', zonaId: '',
+        tiempoEsperaEstimado: '', zonaId: '', distancia: '',
+        imagenUrl: '',
     })
 
     async function handleCrear() {
@@ -810,13 +822,24 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
                 edadMinima:           form.edadMinima      ? parseInt(form.edadMinima, 10)      : 0,
                 tiempoEsperaEstimado: form.tiempoEsperaEstimado ? parseInt(form.tiempoEsperaEstimado, 10) : 0,
                 zonaId:               form.zonaId,
+                distancia:            form.distancia ? parseFloat(form.distancia) : 50,
+                imagenUrl:            form.imagenUrl.trim() || null,
             })
+            // Persistir la imagen en localStorage para que Inicio, Visitante
+            // y Favoritos la muestren sin necesidad de recargar el backend
+            if (form.imagenUrl.trim()) {
+                imagenAtraccionService.set(form.id, form.imagenUrl.trim())
+            }
             await onRefresh()
-            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '' })
+            setForm({ id: '', nombre: '', tipo: 'MECANICA_ALTURA', capacidadMaxima: '', alturaMinima: '', edadMinima: '', tiempoEsperaEstimado: '', zonaId: '', distancia: '', imagenUrl: '' })
             setShowForm(false)
         } catch (e) {
-            setError(e?.response?.data || 'Error al crear la atracción.')
+            const msg = typeof e?.response?.data === 'string'
+                ? e.response.data
+                : e?.response?.data?.message || e?.message || 'Error al crear la atracción.'
+            setError(msg)
         } finally { setLoading(false) }
+
     }
 
     function iniciarEdicion(a) {
@@ -830,13 +853,33 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
     async function handleGuardarEdicion(a) {
         setLoadingEdit(true)
         try {
-            // Actualizar estado si cambió
-            if (editForm.estado && editForm.estado !== a.estado) {
+            const estadoCambio = editForm.estado && editForm.estado !== a.estado
+            if (estadoCambio) {
                 await atraccionService.cambiarEstado(a.id, editForm.estado)
+
+                if (editForm.estado === 'EN_MANTENIMIENTO') {
+                    // Insertar alerta sintética en mantCtx para que aparezca
+                    // inmediatamente en el panel y en los contadores
+                    const nuevaAlerta = {
+                        id:              `mant-${a.id}-${Date.now()}`,
+                        nombreAtraccion: a.nombre,
+                        idAtraccion:     a.id,
+                        resuelta:        false,
+                        fecha:           new Date().toISOString(),
+                        descripcion:     'Mantenimiento preventivo',
+                    }
+                    setMantCtx(prev => [...prev, nuevaAlerta])
+                } else if (editForm.estado === 'ACTIVA') {
+                    // Marcar como resuelta la alerta pendiente de esta atracción
+                    setMantCtx(prev => prev.map(m => {
+                        const idAtr = m.idAtraccion || m.atraccionId || m.atraccion
+                        return String(idAtr) === String(a.id) && !m.resuelta
+                            ? { ...m, resuelta: true }
+                            : m
+                    }))
+                }
             }
             await onRefresh()
-            // Refrescar alertas de mantenimiento para sincronizar el panel
-            if (onRefreshAlertas) await onRefreshAlertas()
             setEditando(null)
         } catch (e) { console.error('Error editando atracción:', e) }
         finally { setLoadingEdit(false) }
@@ -850,6 +893,17 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
             await onRefresh()
         } catch (e) { console.error('Error eliminando atracción:', e) }
         finally { setLoadingDel(null) }
+    }
+
+    // ── CORRECCIÓN: procesa el siguiente visitante en la cola y refresca
+    // tiempoEsperaEstimado en el contexto global → se propaga a todas las páginas.
+    async function handleProcesarCola(id) {
+        try {
+            await atraccionService.procesarCola(id)
+            // onRefresh llama a refrescarAtracciones → GET /api/atracciones
+            // actualiza tiempoEsperaEstimado y visitantesEnCola en el contexto.
+            await onRefresh()
+        } catch (e) { console.error('Error procesando cola:', e) }
     }
 
     return (
@@ -870,6 +924,7 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
             </div>
 
             {showForm && (
+
                 <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)', background: 'rgba(255,255,255,0.02)' }}>
                     {error && <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', border: '0.5px solid rgba(230,57,70,0.2)' }}>{error}</p>}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -885,6 +940,8 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
                         <Input label="Altura mínima (m)" type="number" min="0" placeholder="Ej: 1.40" value={form.alturaMinima} onChange={e => setForm(p => ({ ...p, alturaMinima: e.target.value }))} />
                         <Input label="Edad mínima" type="number" min="0" placeholder="Ej: 8" value={form.edadMinima} onChange={e => setForm(p => ({ ...p, edadMinima: e.target.value }))} />
                         <Input label="Tiempo de espera estimado (min)" type="number" min="0" placeholder="Ej: 15" value={form.tiempoEsperaEstimado} onChange={e => setForm(p => ({ ...p, tiempoEsperaEstimado: e.target.value }))} />
+                        <Input label="Distancia a otras atracciones (m)" type="number" min="1" placeholder="Ej: 80" value={form.distancia} onChange={e => setForm(p => ({ ...p, distancia: e.target.value }))} />
+                        <Input label="URL de imagen (opcional)" type="url" placeholder="https://ejemplo.com/imagen.jpg" value={form.imagenUrl} onChange={e => setForm(p => ({ ...p, imagenUrl: e.target.value }))} />
                         <div>
                             <label className="tp-label">Zona</label>
                             <select className="tp-input tp-select w-full" value={form.zonaId} onChange={e => setForm(p => ({ ...p, zonaId: e.target.value }))}>
@@ -921,9 +978,17 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
                         <React.Fragment key={a.id}>
                             <tr>
                                 <td>
-                                    <div>
-                                        <p className="text-sm font-medium" style={{ color: 'var(--c-text)', fontFamily: 'var(--font-body)' }}>{a.nombre}</p>
-                                        <p className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{a.id}</p>
+                                    <div className="flex items-center gap-2">
+                                        {a.imagenUrl && (
+                                            <img src={a.imagenUrl} alt={a.nombre}
+                                                 className="rounded-lg object-cover flex-shrink-0"
+                                                 style={{ width: 36, height: 36, border: '0.5px solid var(--c-border)' }}
+                                                 onError={e => { e.target.style.display = 'none' }} />
+                                        )}
+                                        <div>
+                                            <p className="text-sm font-medium" style={{ color: 'var(--c-text)', fontFamily: 'var(--font-body)' }}>{a.nombre}</p>
+                                            <p className="text-xs font-mono" style={{ color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>#{a.id}</p>
+                                        </div>
                                     </div>
                                 </td>
                                 <td><span className="text-xs" style={{ color: 'var(--c-dim)' }}>{a.zona || '—'}</span></td>
@@ -945,6 +1010,19 @@ function GestionAtracciones({ atracciones, zonas, onRefresh, onRefreshAlertas })
                                                 style={{ background: 'rgba(69,123,157,0.12)', color: '#457b9d', border: '0.5px solid rgba(69,123,157,0.25)' }}
                                                 onClick={() => iniciarEdicion(a)}>
                                             ✏️
+                                        </button>
+                                        {/* ── CORRECCIÓN: botón para procesar cola y bajar tiempoEspera ── */}
+                                        <button title={`Procesar siguiente en cola (${a.visitantesEnCola ?? 0} en espera)`}
+                                                className="text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                                                style={{
+                                                    background: (a.visitantesEnCola ?? 0) > 0 ? 'rgba(42,157,143,0.12)' : 'rgba(255,255,255,0.04)',
+                                                    color: (a.visitantesEnCola ?? 0) > 0 ? '#2a9d8f' : 'var(--c-muted)',
+                                                    border: `0.5px solid ${(a.visitantesEnCola ?? 0) > 0 ? 'rgba(42,157,143,0.25)' : 'var(--c-border)'}`,
+                                                    cursor: (a.visitantesEnCola ?? 0) > 0 ? 'pointer' : 'not-allowed',
+                                                }}
+                                                onClick={() => handleProcesarCola(a.id)}
+                                                disabled={!(a.visitantesEnCola ?? 0)}>
+                                            ▶
                                         </button>
                                         <button title="Cerrar atracción"
                                                 className="text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
@@ -1118,8 +1196,7 @@ export default function Administracion() {
 
     const setMantenimiento = useCallback((updater) => {
         setMantCtx(prev => {
-            const adapted = prev.map(adaptarAlertaMantenimiento)
-            const updated = typeof updater === 'function' ? updater(adapted) : updater
+            const updated = typeof updater === 'function' ? updater(prev) : updater
             return updated
         })
     }, [setMantCtx])
@@ -1159,6 +1236,7 @@ export default function Administracion() {
                                 zonas={zonas}
                                 onRefresh={refrescarAtracciones}
                                 onRefreshAlertas={refrescarAlertas}
+                                setMantCtx={setMantCtx}
                             />
                             <GestionZonas
                                 zonas={zonas}
@@ -1190,10 +1268,11 @@ export default function Administracion() {
                                     <h3 className="text-sm font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}>Resumen del sistema</h3>
                                     <div className="space-y-3">
                                         {[
-                                            { label: 'Operadores activos',       value: operadores.filter(o => o.activo).length,   total: operadores.length,    color: '#2a9d8f' },
-                                            { label: 'Zonas disponibles',         value: zonas.filter(z => !z.estaLlena).length,   total: zonas.length,         color: '#f4a261' },
-                                            { label: 'Mantenimientos resueltos', value: mantenimiento.filter(m => m.resuelta).length, total: mantenimiento.length, color: '#22c55e' },
-                                            { label: 'Alertas climáticas',       value: alertas.filter(a => a.activa).length,      total: alertas.length,       color: '#e63946' },
+                                            { label: 'Operadores activos',           value: operadores.filter(o => o.activo).length,                                    total: operadores.length,      color: '#2a9d8f' },
+                                            { label: 'Zonas disponibles',            value: zonas.filter(z => !z.estaLlena).length,                                     total: zonas.length,           color: '#f4a261' },
+                                            { label: 'Mantenimiento preventivo',     value: atraccionesCtx.filter(a => a.estado === 'EN_MANTENIMIENTO').length,          total: atraccionesCtx.length,  color: '#e63946' },
+                                            { label: 'Mantenimientos resueltos',     value: mantenimiento.filter(m => m.resuelta).length,                               total: mantenimiento.length,   color: '#22c55e' },
+                                            { label: 'Alertas climáticas activas',  value: alertas.filter(a => a.activa).length,                                       total: alertas.length,         color: '#e9c46a' },
                                         ].map(({ label, value, total, color }) => (
                                             <div key={label}>
                                                 <div className="flex justify-between text-xs mb-1.5">

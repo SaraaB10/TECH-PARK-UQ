@@ -33,6 +33,16 @@ public class ColaVirtual {
         return cola.tamano();
     }
 
+    // Cantidad de visitantes FastPass (prioridad 1) en la cola
+    public int tamanoFastPass() {
+        return cola.tamanoConPrioridad(1);
+    }
+
+    // Cantidad de visitantes General/Familiar (prioridad 2) en la cola
+    public int tamanoGeneral() {
+        return cola.tamanoConPrioridad(2);
+    }
+
     public Atraccion getAtraccion() { return atraccion; }
 
     public boolean estaEnCola(Visitante visitante) {

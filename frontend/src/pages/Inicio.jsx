@@ -11,6 +11,7 @@ import Badge, { StatusBadge } from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { parqueService } from '@/services/parqueService'
+import { imagenAtraccionService } from '@/services/imagenAtraccionService'
 import { useApp } from '@/context/AppContext'
 
 // ─── Paleta de colores para zonas (asignada por índice, no por ID hardcodeado) ─
@@ -379,6 +380,15 @@ function AtraccionesDestacadas({ atracciones, zonas }) {
     )
 }
 
+// Imagen placeholder SVG inline — no depende de red
+const IMAGENES_DEFAULT = {
+    'A-001': 'https://images.unsplash.com/photo-1582198790133-3692e01f649c?w=400', // Montaña Rusa Extrema
+    'A-002': 'https://images.unsplash.com/photo-1751896077567-c5529b9173f9?w=400', // Torre de Caída Libre
+    'A-003': 'https://plus.unsplash.com/premium_photo-1756150779285-b0c43ace54ad?w=400', // Tobogán Gigante
+    'A-004': 'https://images.unsplash.com/photo-1638981108338-a0c9ee4a83ed?w=400', // Piscina de Olas
+    'A-005': 'https://images.unsplash.com/photo-1763634707829-16110077ade6?w=400', // Show de Magia
+}
+
 function AtraccionCard({ atraccion: a, delay, zonas }) {
     const paletteIdx = zonas.findIndex(z =>
         z.nombre?.toLowerCase().includes(a.tipo?.toLowerCase?.() ?? '')
@@ -387,19 +397,44 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
     const stColor = estadoColor(a.estado)
     const esActiva = a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA'
 
+    // Prioridad: campo del objeto atracción (contexto) → localStorage → default hardcodeado
+    const imagenUrl = a.imagenUrl || imagenAtraccionService.get(a.id) || IMAGENES_DEFAULT[a.id] || null
+
     return (
         <div
-            className="glass rounded-2xl p-4 flex items-center gap-4 group hover:scale-[1.01] transition-all duration-300"
+            className="glass rounded-2xl overflow-hidden group hover:scale-[1.01] transition-all duration-300"
             style={{ animationDelay: `${delay * 0.08}s` }}
         >
+            {/* Franja de imagen — visible solo si hay URL; si no, icono de actividad */}
             <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `${zonaColor}18`, border: `0.5px solid ${zonaColor}30` }}
+                className="relative w-full"
+                style={{ height: 210, background: `${zonaColor}12` }}
             >
-                <Activity size={20} style={{ color: zonaColor }} />
+                {imagenUrl ? (
+                    <img
+                        src={imagenUrl}
+                        alt={a.nombre}
+                        className="w-full h-full object-cover"
+                        style={{ display: 'block' }}
+                        onError={e => {
+                            // Si la URL falla, mostrar placeholder
+                            e.currentTarget.src = PLACEHOLDER_IMG
+                        }}
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                        <Activity size={32} style={{ color: `${zonaColor}60` }} />
+                    </div>
+                )}
+                {/* Badge de estado sobre la imagen */}
+                <span
+                    className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full"
+                    style={{ background: stColor, boxShadow: `0 0 8px ${stColor}` }}
+                />
             </div>
 
-            <div className="flex-1 min-w-0">
+            {/* Contenido de texto debajo de la imagen */}
+            <div className="p-4">
                 <h4
                     className="font-semibold text-sm truncate"
                     style={{ fontFamily: 'var(--font-display)', color: 'var(--c-text)' }}
@@ -423,20 +458,12 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
                         )}
                     </div>
                 )}
-            </div>
-
-            <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ background: stColor, boxShadow: `0 0 8px ${stColor}` }}
-                />
-                {esActiva && (a.tiempoEsperaEstimado ?? 0) > 0 && (
-                    <span
-                        className="text-xs font-bold"
-                        style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-dim)' }}
-                    >
-                        {a.tiempoEsperaEstimado}′
-                    </span>
+                {!esActiva && (
+                    <div className="mt-2">
+                        <span className="text-xs" style={{ color: stColor }}>
+                            {a.estado}
+                        </span>
+                    </div>
                 )}
             </div>
         </div>

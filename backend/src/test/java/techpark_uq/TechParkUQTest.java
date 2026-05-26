@@ -21,6 +21,7 @@ public class TechParkUQTest {
     void setUp() {
         atraccion = new Atraccion("A-001", "Montaña Rusa",
                 TipoAtraccion.MECANICA_ALTURA, 20, 1.40, 12, 0);
+        atraccion.setRequiereSeguimientoTecnico(true); // necesario para que se bloquee a los 500
 
         visitanteFastPass = new Visitante("V-001", "Laura", 25,
                 "3101111111", "laura@test.com", "pass", 1.65, 200000);
@@ -78,10 +79,9 @@ public class TechParkUQTest {
                 TipoAtraccion.ESPECTACULO, 100, 0.0, 0, 0);
 
         parque.agregarZona(zona);
-        parque.agregarAtraccionAZona(acuatica, "Z-001");
-        parque.agregarAtraccionAZona(mecanica, "Z-001");
-        parque.agregarAtraccionAZona(espectaculo, "Z-001");
-
+        parque.agregarAtraccionAZona(acuatica, "Z-001", 10);
+        parque.agregarAtraccionAZona(mecanica, "Z-001", 15);
+        parque.agregarAtraccionAZona(espectaculo, "Z-001", 20);
         parque.activarAlertaClimatica(TipoClima.TORMENTA_ELECTRICA);
 
         assertEquals(EstadoAtraccion.CERRADA, acuatica.getEstado(),

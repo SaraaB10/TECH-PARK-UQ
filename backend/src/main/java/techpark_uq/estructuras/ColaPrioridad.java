@@ -113,6 +113,17 @@ public class ColaPrioridad<T> {
         return sb.toString();
     }
 
+    // Cuenta cuántos elementos tienen exactamente la prioridad indicada
+    public int tamanoConPrioridad(int prioridad) {
+        int count = 0;
+        Nodo<T> actual = cabeza;
+        while (actual != null) {
+            if (actual.elemento.prioridad == prioridad) count++;
+            actual = actual.siguiente;
+        }
+        return count;
+    }
+
     // Verifica si un elemento está en la cola
     public boolean contiene(T dato) {
         Nodo<T> actual = cabeza;

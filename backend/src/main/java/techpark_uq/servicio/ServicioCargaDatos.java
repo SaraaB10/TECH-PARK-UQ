@@ -68,35 +68,36 @@ public class ServicioCargaDatos {
         }
 
         // ── Atracciones ────────────────────────────────────────────────────────
+
         if (!atraccionExiste(parque, "A-001")) {
             parque.agregarAtraccionAZona(
                     new Atraccion("A-001", "Montaña Rusa Extrema",
                             TipoAtraccion.MECANICA_ALTURA, 20, 1.40, 12, 15000),
-                    "Z-001");
+                    "Z-001", 50);
         }
         if (!atraccionExiste(parque, "A-002")) {
             parque.agregarAtraccionAZona(
                     new Atraccion("A-002", "Torre de Caída Libre",
                             TipoAtraccion.MECANICA_ALTURA, 10, 1.50, 14, 10000),
-                    "Z-001");
+                    "Z-001", 50);
         }
         if (!atraccionExiste(parque, "A-003")) {
             parque.agregarAtraccionAZona(
                     new Atraccion("A-003", "Tobogán Gigante",
                             TipoAtraccion.ACUATICA, 15, 1.20, 8, 8000),
-                    "Z-002");
+                    "Z-002", 30);
         }
         if (!atraccionExiste(parque, "A-004")) {
             parque.agregarAtraccionAZona(
                     new Atraccion("A-004", "Piscina de Olas",
                             TipoAtraccion.ACUATICA, 50, 0.0, 5, 0),
-                    "Z-002");
+                    "Z-002", 30);
         }
         if (!atraccionExiste(parque, "A-005")) {
             parque.agregarAtraccionAZona(
                     new Atraccion("A-005", "Show de Magia",
                             TipoAtraccion.ESPECTACULO, 100, 0.0, 0, 0),
-                    "Z-003");
+                    "Z-003", 80);
         }
 
         // ── Operadores ─────────────────────────────────────────────────────────

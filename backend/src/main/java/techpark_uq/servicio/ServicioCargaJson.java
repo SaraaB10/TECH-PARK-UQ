@@ -49,6 +49,8 @@ public class ServicioCargaJson {
                 zonas++;
             }
 
+
+
             // ── Atracciones: insertar solo si el ID no existe aún ─────────────
             for (JsonNode a : root.get("atracciones")) {
                 String id = a.get("id").asText();
@@ -56,6 +58,7 @@ public class ServicioCargaJson {
                         .anyMatch(atr -> atr.getId().equals(id));
                 if (yaExiste) continue;
 
+                double distancia = a.has("distancia") ? a.get("distancia").asDouble() : 50;
                 parque.agregarAtraccionAZona(
                         new Atraccion(
                                 id,
@@ -66,7 +69,8 @@ public class ServicioCargaJson {
                                 a.get("edadMinima").asInt(),
                                 a.get("costoAdicional").asDouble()
                         ),
-                        a.get("idZona").asText()
+                        a.get("idZona").asText(),
+                        distancia
                 );
                 atracciones++;
             }
