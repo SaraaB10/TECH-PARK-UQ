@@ -21,6 +21,7 @@ public class TechParkUQTest {
     void setUp() {
         atraccion = new Atraccion("A-001", "Montaña Rusa",
                 TipoAtraccion.MECANICA_ALTURA, 20, 1.40, 12, 0);
+        atraccion.setRequiereSeguimientoTecnico(true); // necesario para que se bloquee a los 500
 
         visitanteFastPass = new Visitante("V-001", "Laura", 25,
                 "3101111111", "laura@test.com", "pass", 1.65, 200000);

@@ -397,8 +397,8 @@ function AtraccionCard({ atraccion: a, delay, zonas }) {
     const stColor = estadoColor(a.estado)
     const esActiva = a.estado?.toUpperCase() === 'ACTIVA' || a.estado?.toUpperCase() === 'ABIERTA'
 
-    // Leer imagen desde localStorage — null si no tiene
-    const imagenUrl = imagenAtraccionService.get(a.id) || IMAGENES_DEFAULT[a.id] || null
+    // Prioridad: campo del objeto atracción (contexto) → localStorage → default hardcodeado
+    const imagenUrl = a.imagenUrl || imagenAtraccionService.get(a.id) || IMAGENES_DEFAULT[a.id] || null
 
     return (
         <div
